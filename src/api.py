@@ -1,0 +1,38 @@
+"""FastAPI endpoints for triage-and-voice and naive bots."""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from src.models import ChatMessage, BotResponse
+from src.orchestrator import process_message as triage_process
+from src.naive.bot import process_message as naive_process
+
+app = FastAPI(title="Triage & Voice Bot API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list[ChatMessage] = []
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+@app.post("/chat/triage-voice", response_model=BotResponse)
+async def chat_triage_voice(req: ChatRequest) -> BotResponse:
+    return await triage_process(req.message, req.history)
+
+
+@app.post("/chat/naive", response_model=BotResponse)
+async def chat_naive(req: ChatRequest) -> BotResponse:
+    return await naive_process(req.message, req.history)
