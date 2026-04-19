@@ -23,7 +23,7 @@ def _make_gate_decision(**overrides) -> GateDecision:
         "handoff": False,
         "payload": {},
         "voice_call": VoiceCallSpec(persona="default_friendly", inject_data_keys=[]),
-        "reasoning_trace": ["Category product_question → default_friendly."],
+        "reasoning_trace": ["voice_response: persona='default_friendly'"],
     }
     defaults.update(overrides)
     return GateDecision(**defaults)
@@ -50,7 +50,7 @@ async def test_full_pipeline_returns_correct_bot_response(history: list[ChatMess
     assert result.text == "Here's the answer!"
     assert result.human_handoff is False
     assert "triage: category=product_question, urgency=low" in result.trace
-    assert "Category product_question → default_friendly." in result.trace
+    assert "voice_response: persona='default_friendly'" in result.trace
     assert "voice: persona=default_friendly" in result.trace
 
 
@@ -94,7 +94,7 @@ async def test_trace_includes_gate_reasoning(history: list[ChatMessage]):
     """Trace should include all gate reasoning entries."""
     triage_result = _make_triage_result(category="refund_request", urgency="medium", requested_data=["refund_policy"])
     gate_decision = _make_gate_decision(
-        reasoning_trace=["Category refund_request → default_friendly.", "Injected refund_policy from repository."],
+        reasoning_trace=["voice_response: persona='default_friendly'", "inject_data: policies→refund_policy"],
     )
 
     with (
@@ -104,4 +104,4 @@ async def test_trace_includes_gate_reasoning(history: list[ChatMessage]):
     ):
         result = await process_message("I want a refund", history)
 
-    assert "Injected refund_policy from repository." in result.trace
+    assert "inject_data: policies→refund_policy" in result.trace
