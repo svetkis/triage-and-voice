@@ -8,13 +8,14 @@ class InjectDataAction:
         self._sources = sources
 
     def apply(self, triage: TriageResult, decision: GateDecision, params: dict) -> None:
+        locus = params.get("_locus", "<unknown>")
         source_name = params["source"]
         key = params["key"]
         if source_name not in self._sources:
-            raise KeyError(f"unknown data source: {source_name!r}")
+            raise KeyError(f"unknown data source {source_name!r} at {locus}")
 
         value = self._sources[source_name].fetch(
-            {k: v for k, v in params.items() if k not in ("source", "key")}
+            {k: v for k, v in params.items() if k not in ("source", "key", "_locus")}
         )
         if value is not None:
             decision.payload[key] = value

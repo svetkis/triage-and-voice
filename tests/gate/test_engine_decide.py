@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from src.gate.engine import Gate
 from src.models import ExtractedEntities, TriageResult
 
@@ -50,3 +52,21 @@ def test_non_listed_urgency_does_not_trigger_override():
     gate = Gate.from_yaml(FIXTURES / "with_overrides.yaml")
     decision = gate.decide(_triage(category="refund", urgency="medium"))
     assert decision.handoff is False
+
+
+def test_unknown_action_type_error_includes_locus():
+    gate = Gate.from_yaml(FIXTURES / "unknown_action_type.yaml")
+    with pytest.raises(KeyError) as exc:
+        gate.decide(_triage(category="refund"))
+    msg = str(exc.value)
+    assert "voice_responce" in msg
+    assert "categories.refund.actions[1]" in msg
+
+
+def test_unknown_source_error_includes_locus():
+    gate = Gate.from_yaml(FIXTURES / "unknown_source.yaml")
+    with pytest.raises(KeyError) as exc:
+        gate.decide(_triage(category="refund"))
+    msg = str(exc.value)
+    assert "nonexistent_source" in msg
+    assert "categories.refund.actions[0]" in msg

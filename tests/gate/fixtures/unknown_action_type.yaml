@@ -1,0 +1,13 @@
+personas:
+  warm: prompts/voice/warm.md
+categories:
+  refund:
+    actions:
+      - type: voice_response
+        params:
+          persona: warm
+      - type: voice_responce
+        params:
+          persona: warm
+default:
+  actions: []
