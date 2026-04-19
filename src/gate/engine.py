@@ -36,6 +36,10 @@ class Gate:
             raise RuntimeError("Gate is frozen; register actions before calling freeze() or decide()")
         self._actions[name] = action
 
+    def persona_template_path(self, persona: str) -> str:
+        """Return the prompt template path declared for a persona in YAML."""
+        return self._config.personas[persona]
+
     def freeze(self) -> None:
         """Validate the full config against registered actions and sources. Idempotent."""
         if self._frozen:
