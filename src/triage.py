@@ -1,14 +1,11 @@
 """Triage classifier — calls LLM with structured outputs, returns a parsed TriageResult."""
 
 from functools import lru_cache
-from pathlib import Path
 
 from openai import AsyncOpenAI
 
 from src.config import get_settings
 from src.models import ChatMessage, TriageResult
-
-_PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "triage.md"
 
 
 class TriageFailure(Exception):
@@ -26,18 +23,16 @@ def _get_client() -> AsyncOpenAI:
     )
 
 
-@lru_cache
-def _load_prompt() -> str:
-    return _PROMPT_PATH.read_text(encoding="utf-8")
+async def run_triage(user_message: str, history: list[ChatMessage], prompt: str) -> TriageResult:
+    """Classify a user message via LLM using structured outputs.
 
-
-async def run_triage(user_message: str, history: list[ChatMessage]) -> TriageResult:
-    """Classify a user message via LLM using structured outputs."""
+    `prompt` is the system prompt for the triage call — supplied by the caller
+    (typically loaded once at Pipeline construction from the vertical's prompt file).
+    """
     client = _get_client()
     settings = get_settings()
-    system_prompt = _load_prompt()
 
-    messages: list[dict] = [{"role": "system", "content": system_prompt}]
+    messages: list[dict] = [{"role": "system", "content": prompt}]
     for msg in history:
         messages.append({"role": msg.role, "content": msg.content})
     messages.append({"role": "user", "content": user_message})

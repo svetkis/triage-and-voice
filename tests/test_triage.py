@@ -33,7 +33,7 @@ VALID_TRIAGE = TriageResult(
 async def test_parsed_triage_result_is_returned(mock_get_client: AsyncMock):
     mock_get_client.return_value = _mock_client(_make_parsed_completion(VALID_TRIAGE))
 
-    result = await run_triage("Where is my order ORD-123?", history=[])
+    result = await run_triage("Where is my order ORD-123?", history=[], prompt="SYSTEM PROMPT")
 
     assert isinstance(result, TriageResult)
     assert result.category == "order_status"
@@ -48,4 +48,17 @@ async def test_none_parsed_raises_triage_failure(mock_get_client: AsyncMock):
     )
 
     with pytest.raises(TriageFailure):
-        await run_triage("hello", history=[])
+        await run_triage("hello", history=[], prompt="SYSTEM PROMPT")
+
+
+@patch("src.triage._get_client")
+async def test_prompt_is_passed_as_system_message(mock_get_client: AsyncMock):
+    """The prompt argument must be forwarded to the LLM as the system message."""
+    client = _mock_client(_make_parsed_completion(VALID_TRIAGE))
+    mock_get_client.return_value = client
+
+    await run_triage("hi", history=[], prompt="CUSTOM VERTICAL PROMPT")
+
+    call_kwargs = client.beta.chat.completions.parse.call_args.kwargs
+    messages = call_kwargs["messages"]
+    assert messages[0] == {"role": "system", "content": "CUSTOM VERTICAL PROMPT"}

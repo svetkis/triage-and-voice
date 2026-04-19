@@ -66,7 +66,7 @@ flowchart LR
 ```
 
 For a deep dive, see the article:
-[Why your LLM product hallucinates the one thing it shouldn't](https://substack.com/home/post/p-193325003).
+[Why your LLM product hallucinates the one thing it shouldn't](https://lanaapps.substack.com/p/why-your-llm-product-hallucinates).
 
 ---
 
@@ -84,6 +84,28 @@ flowchart LR
     style G fill:#f9f,stroke:#333,stroke-width:2px
     style DB fill:#ffd,stroke:#333
 ```
+
+**What travels on each channel:**
+
+```mermaid
+flowchart LR
+    U[User] -->|"free text"| T[Triage LLM]
+    T -->|"JSON: intent,<br/>emotion, data_keys,<br/>entities"| G[Gate]
+
+    G -->|"lookup keys<br/>(order_id,<br/>policy_slug)"| DB[(orders.json<br/>policies.json<br/>contacts.json)]
+    DB -->|"verified records"| G
+
+    G -->|"persona +<br/>injected facts<br/>(only requested keys)"| V[Voice LLM]
+    V -->|"natural language"| R[Response]
+
+    DB -.->|"❌ never<br/>direct access"| V
+
+    style G fill:#f9f,stroke:#333,stroke-width:2px
+    style DB fill:#ffd,stroke:#333
+    linkStyle 6 stroke:#a00,stroke-dasharray:5 5
+```
+
+The dashed line is the whole point: raw data never reaches the voice LLM. The gate is the only component that reads the database, and it hands the voice only the specific fields the triage requested.
 
 **How it works:**
 
@@ -108,9 +130,9 @@ because it never sees one -- it only sees the exact policy text the gate injecte
 ## Prior art and where this fits
 
 Triage-and-Voice doesn't introduce new building blocks. Each of its components
-maps to established practices: triage to semantic routing and intent
-classification, the gate to deterministic tool execution and grounded RAG,
-voice to constrained generation. What this project contributes is a named
+maps to established practices: triage to semantic routing and classification —
+here widened to route on emotional state alongside intent — the gate to
+deterministic tool execution and grounded RAG, voice to constrained generation. What this project contributes is a named
 architectural pattern that binds them into a discipline:
 
 **The LLM call that speaks to the user must never be the one that decides what's
@@ -195,15 +217,21 @@ triage-and-voice/
 │   ├── orchestrator.py     # Pipeline: triage → gate → voice with fallback
 │   └── naive/
 │       └── bot.py          # Naive single-prompt bot (baseline)
-├── examples/
-│   └── shopco/             # Worked example — support bot using the framework
-│       ├── main.py         #   build_gate() — registers sources, freezes, returns Gate
-│       ├── sources.py      #   OrderSource, PolicySource, ContactsSource
-│       ├── config/
-│       │   └── shopco.yaml #   Declarative gate config
-│       └── tests/
-│           ├── test_sources.py       # Data source unit tests
-│           └── test_shopco_flow.py   # Acceptance tests against the full config
+├── examples/               # Worked examples — each one a full consumer of the framework
+│   ├── shopco/             #   E-commerce support bot (used throughout this README)
+│   │   ├── main.py         #     build_gate() — registers sources, freezes, returns Gate
+│   │   ├── sources.py      #     OrderSource, PolicySource, ContactsSource
+│   │   ├── config/shopco.yaml
+│   │   └── tests/
+│   │       ├── test_sources.py
+│   │       └── test_shopco_flow.py
+│   └── skycarrier/         #   Airline support bot — demonstrates emotional-state routing
+│       ├── main.py         #     build_gate() for the airline domain
+│       ├── sources.py      #     FareTermsSource, FlightStatusInfoSource, BaggagePolicySource
+│       ├── config/skycarrier.yaml
+│       ├── data/           #     bereavement_fare.json, flight_status_info.json, baggage_policy.json
+│       ├── prompts/        #     Domain-specific triage.md + voice personas
+│       └── tests/test_skycarrier_flow.py
 ├── prompts/
 │   ├── triage.md
 │   ├── naive/bot.md
@@ -386,11 +414,17 @@ new domain should adapt `src/orchestrator.py` (one import line + the
 `_gate = build_gate()` singleton) to point at their own `build_gate()`.
 Everything under `src/gate/` stays untouched.
 
-### The worked example
+### Worked examples
 
-[`examples/shopco/`](examples/shopco/) is the full reference implementation —
-the support-bot scenarios used throughout this README. Read it alongside this
-doc; the YAML there is the concrete form of the pattern.
+Two consumers of the framework ship in the repo. Both use `src/gate/`
+unchanged; each brings its own YAML, data sources, and persona prompts.
+
+| Example | Domain | What it demonstrates |
+|---------|--------|----------------------|
+| [`examples/shopco/`](examples/shopco/) | E-commerce support | The basic split — gate injects verified policies, contacts, and order data; voice never sees raw sources. This is the example used throughout this README. |
+| [`examples/skycarrier/`](examples/skycarrier/) | Airline support | **Emotional-state routing.** Bereavement-fare enquiries split into two triage categories by `user_emotional_state`, each routed to a different persona on the same underlying data. Emotional pressure is where a single-prompt LLM's sycophancy turns into invented policy and softened deadlines — so the choice of *which persona answers* moves upstream of the voice call. |
+
+Read either alongside this doc; the YAML there is the concrete form of the pattern.
 
 ---
 
@@ -566,7 +600,7 @@ and history turn count.
 
 - **Deep dive (Russian):** [Why your LLM product hallucinates the one thing it shouldn't](https://habr.com/ru/articles/1019592/) — original pattern introduction
 - **Cross-industry analysis (Russian):** [Охотник за факапами](TODO-habr-article-2-url) — Air Canada, Chevrolet, legal industry
-- **English version:** [Substack](https://substack.com/home/post/p-193325003)
+- **English version:** [Substack](https://lanaapps.substack.com/p/why-your-llm-product-hallucinates)
 - **Companion eval framework:** [triage-voice-eval](https://github.com/svetkis/triage-voice-eval) — binary safety verdicts, persona fan-out, trend analysis
 - **Author:** [Svetlana Dudinova](https://github.com/svetkis)
 
