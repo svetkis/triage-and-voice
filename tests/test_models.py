@@ -7,9 +7,7 @@ from src.models import (
     BotResponse,
     ChatMessage,
     ExtractedEntities,
-    GateDecision,
     TriageResult,
-    VoiceInput,
 )
 
 
@@ -41,27 +39,6 @@ class TestTriageResult:
         assert result.user_emotional_state == "neutral"
 
 
-class TestGateDecision:
-    def test_defaults(self):
-        decision = GateDecision()
-        assert decision.voice_persona == "default_friendly"
-        assert decision.injected_data == {}
-        assert decision.human_handoff is False
-        assert decision.reasoning_trace == []
-
-    def test_custom_values(self):
-        decision = GateDecision(
-            voice_persona="empathetic_escalation",
-            injected_data={"order_status": "shipped"},
-            human_handoff=True,
-            reasoning_trace=["user is angry", "escalating"],
-        )
-        assert decision.voice_persona == "empathetic_escalation"
-        assert decision.injected_data == {"order_status": "shipped"}
-        assert decision.human_handoff is True
-        assert len(decision.reasoning_trace) == 2
-
-
 class TestBotResponse:
     def test_contains_trace(self):
         resp = BotResponse(
@@ -90,20 +67,3 @@ class TestChatMessage:
     def test_invalid_role_raises(self):
         with pytest.raises(ValidationError):
             ChatMessage(role="system", content="nope")
-
-
-class TestVoiceInput:
-    def test_minimal(self):
-        vi = VoiceInput(persona="formal", user_message="Help me")
-        assert vi.persona == "formal"
-        assert vi.user_message == "Help me"
-        assert vi.injected_data == {}
-        assert vi.history == []
-
-    def test_with_history(self):
-        vi = VoiceInput(
-            persona="default_friendly",
-            user_message="What about my order?",
-            history=[ChatMessage(role="user", content="Hi")],
-        )
-        assert len(vi.history) == 1
