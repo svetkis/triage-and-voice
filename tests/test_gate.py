@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from src.gate import apply_gate
+from src.gate_legacy import apply_gate
 from src.models import ExtractedEntities, TriageResult
 
 

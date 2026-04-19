@@ -4,7 +4,7 @@ import logging
 
 from src.models import BotResponse, ChatMessage
 from src.triage import run_triage, TriageFailure
-from src.gate import apply_gate
+from src.gate_legacy import apply_gate
 from src.voice import generate_response, VoiceFailure
 
 logger = logging.getLogger(__name__)
