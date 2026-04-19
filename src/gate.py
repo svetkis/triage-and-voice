@@ -1,7 +1,5 @@
 """Deterministic gate: routes triage results to voice personas with data injection."""
 
-import json
-
 from src.models import GateDecision, TriageResult
 from src import repository
 
@@ -20,7 +18,7 @@ def apply_gate(triage: TriageResult) -> GateDecision:
         decision.human_handoff = True
         contact = repository.get_escalation_contact("safety_hotline")
         if contact:
-            decision.injected_data["safety_hotline"] = json.dumps(contact)
+            decision.injected_data["safety_hotline"] = _format_contact(contact)
         decision.reasoning_trace.append(
             "Category safety_issue → empathetic_escalation, human_handoff, safety contact injected. Returning immediately."
         )
@@ -32,7 +30,7 @@ def apply_gate(triage: TriageResult) -> GateDecision:
         decision.human_handoff = True
         contact = repository.get_escalation_contact("legal_department_email")
         if contact:
-            decision.injected_data["legal_department_email"] = json.dumps(contact)
+            decision.injected_data["legal_department_email"] = contact.get("email", "")
         decision.reasoning_trace.append(
             "Category legal_threat → formal, human_handoff, legal contact injected."
         )
@@ -63,7 +61,10 @@ def apply_gate(triage: TriageResult) -> GateDecision:
         if order_id:
             order = repository.get_order(order_id)
             if order:
-                decision.injected_data["order_status"] = json.dumps(order)
+                tracking = f", tracking: {order['tracking']}" if order.get("tracking") else ""
+                decision.injected_data["order_status"] = (
+                    f"Order {order_id}: {order['status']}{tracking}"
+                )
                 decision.reasoning_trace.append(
                     f"Injected order_status for {order_id}."
                 )
@@ -83,3 +84,12 @@ def apply_gate(triage: TriageResult) -> GateDecision:
         )
 
     return decision
+
+
+def _format_contact(contact: dict) -> str:
+    parts = []
+    if "phone" in contact:
+        parts.append(f"Phone: {contact['phone']}")
+    if "email" in contact:
+        parts.append(f"Email: {contact['email']}")
+    return ", ".join(parts)
