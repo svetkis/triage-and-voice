@@ -1,9 +1,7 @@
-"""Acceptance tests for the ShopCo gate config.
-
-Ported from ``tests/test_gate.py`` (which still exercises the legacy
-``src/gate_legacy.py``). These tests assert the externally observable
-contract of the new framework driven by ``examples/shopco/config/shopco.yaml``.
-"""
+"""Acceptance tests for ShopCo: asserts the externally observable contract
+of build_gate() against a representative set of triage inputs. Ported from
+the former tests/test_gate.py when ShopCo was migrated off the legacy
+hand-written gate module."""
 
 import pytest
 

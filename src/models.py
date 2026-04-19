@@ -1,4 +1,4 @@
-"""Domain models for the Triage-and-Voice pattern."""
+"""Shared pydantic models — pattern types (TriageResult, ExtractedEntities) and transport types (ChatMessage, BotResponse)."""
 
 from typing import Literal
 
