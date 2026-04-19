@@ -84,6 +84,34 @@ because it never sees one -- it only sees the exact policy text the gate injecte
 
 ---
 
+## Prior art and where this fits
+
+Triage-and-Voice doesn't introduce new building blocks. Each of its components
+maps to established practices: triage to semantic routing and intent
+classification, the gate to deterministic tool execution and grounded RAG,
+voice to constrained generation. What this project contributes is a named
+architectural pattern that binds them into a discipline:
+
+**The LLM call that speaks to the user must never be the one that decides what's
+allowed to be said.**
+
+This discipline is not enforced by orchestration frameworks (LangGraph, Burr,
+DSPy) — it's enforced by how you structure your prompts and gates inside them.
+Naming the discipline makes it reviewable: engineers can point to a pattern
+violation in code review instead of re-arguing first principles every time.
+
+**Related work:**
+- Orchestration mechanisms: LangGraph, Burr, DSPy, Haystack
+- Input/output validation: Guardrails AI, NeMo Guardrails
+- Intent routing: semantic-router
+- Constrained generation: Instructor, Outlines
+- Evaluation frameworks: DeepEval, promptfoo, RAGAS
+
+Triage-and-Voice is a composition discipline that can be implemented on top of
+any of these.
+
+---
+
 ## Quickstart
 
 ```bash
