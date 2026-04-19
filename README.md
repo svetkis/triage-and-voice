@@ -179,7 +179,7 @@ make test
 pytest -v
 ```
 
-Tests use no external APIs. Gate, model, and repository tests are fully
+Tests use no external APIs. Gate, model, and data-source tests are fully
 deterministic. Triage and voice tests mock the LLM client.
 
 ---
@@ -304,6 +304,16 @@ unknown persona references, or unknown source references. Called automatically
 on the first `decide()` if the consumer didn't call it explicitly. Typos in
 YAML fail at startup, not at the first live request.
 
+### A note on integration wiring
+
+`src/gate/` is domain-neutral. `src/orchestrator.py` and `src/api.py` are
+not — they import `examples.shopco.main.build_gate` and hardcode the ShopCo
+startup. This is intentional: the repo ships as a reference implementation
+with one worked example, not as a PyPI framework. Consumers forking for a
+new domain should adapt `src/orchestrator.py` (one import line + the
+`_gate = build_gate()` singleton) to point at their own `build_gate()`.
+Everything under `src/gate/` stays untouched.
+
 ### The worked example
 
 [`examples/shopco/`](examples/shopco/) is the full reference implementation —
@@ -392,8 +402,8 @@ Set `OPENAI_BASE_URL` in `.env` to any OpenAI-compatible endpoint
   "human_handoff": false,
   "trace": [
     "triage: category=refund_request, urgency=medium",
-    "Category refund_request → default_friendly.",
-    "Injected refund_policy from repository.",
+    "voice_response: persona='default_friendly'",
+    "inject_data: policies→refund_policy",
     "voice: persona=default_friendly"
   ]
 }

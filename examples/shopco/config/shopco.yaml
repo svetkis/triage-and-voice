@@ -9,6 +9,7 @@ personas:
 categories:
 
   safety_issue:
+    # stop_on_match is reserved for future chained-category matching and currently has no runtime effect
     stop_on_match: true
     actions:
       - type: handoff
@@ -69,7 +70,7 @@ categories:
         params:
           source: orders
           key: order_status
-          # order_id param comes from triage.extracted_entities in Task 13
+          # order_id comes from triage.extracted_entities via the inject_data entity-merge
       - type: voice_response
         params:
           persona: default_friendly
