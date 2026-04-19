@@ -34,8 +34,8 @@ async def process_message(user_message: str, history: list[ChatMessage]) -> BotR
             trace=trace,
         )
 
-    except (TriageFailure, Exception) as exc:
-        trace.append(f"triage error: {type(exc).__name__}: {exc}")
+    except Exception as exc:
+        trace.append(f"pipeline error: {type(exc).__name__}: {exc}")
         return BotResponse(
             text=_FALLBACK_TEXT,
             human_handoff=True,
