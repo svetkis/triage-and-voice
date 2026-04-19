@@ -1,0 +1,85 @@
+# examples/shopco/config/shopco.yaml
+
+personas:
+  default_friendly:      prompts/voice/default_friendly.md
+  formal:                prompts/voice/formal.md
+  empathetic_escalation: prompts/voice/empathetic_escalation.md
+  polite_refusal:        prompts/voice/polite_refusal.md
+
+categories:
+
+  safety_issue:
+    stop_on_match: true
+    actions:
+      - type: handoff
+        params:
+          reason: safety_incident
+      - type: inject_data
+        params:
+          source: escalation_contacts
+          key: safety_hotline
+          contact_key: safety_hotline
+      - type: voice_response
+        params:
+          persona: empathetic_escalation
+          inject_data: [safety_hotline]
+
+  legal_threat:
+    actions:
+      - type: handoff
+        params:
+          reason: legal
+      - type: inject_data
+        params:
+          source: escalation_contacts
+          key: legal_department_email
+          contact_key: legal_department_email
+          field: email
+      - type: inject_data
+        params:
+          source: policies
+          key: refund_policy
+          policy_name: refund_policy
+      - type: voice_response
+        params:
+          persona: formal
+          inject_data: [legal_department_email, refund_policy]
+
+  out_of_scope:
+    actions:
+      - type: voice_response
+        params:
+          persona: polite_refusal
+
+  refund_request:
+    actions:
+      - type: inject_data
+        params:
+          source: policies
+          key: refund_policy
+          policy_name: refund_policy
+      - type: voice_response
+        params:
+          persona: default_friendly
+          inject_data: [refund_policy]
+
+  order_status:
+    actions:
+      - type: inject_data
+        params:
+          source: orders
+          key: order_status
+          # order_id param comes from triage.extracted_entities in Task 13
+      - type: voice_response
+        params:
+          persona: default_friendly
+          inject_data: [order_status]
+
+default:
+  actions:
+    - type: voice_response
+      params:
+        persona: default_friendly
+
+overrides:
+  force_handoff_on_urgency: [critical]
