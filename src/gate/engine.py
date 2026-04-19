@@ -36,6 +36,7 @@ class Gate:
         rule = self._config.categories.get(triage.category) or self._config.default
         for action_spec in rule.actions:
             self._run_action(action_spec, triage, decision)
+        self._apply_overrides(triage, decision)
         return decision
 
     def _run_action(self, spec, triage, decision):
@@ -43,3 +44,12 @@ class Gate:
         if action is None:
             raise KeyError(f"unknown action type: {spec.type!r}")
         action.apply(triage, decision, spec.params)
+
+    def _apply_overrides(self, triage: TriageResult, decision: GateDecision) -> None:
+        forced = self._config.overrides.force_handoff_on_urgency
+        if triage.urgency in forced and not decision.handoff:
+            decision.handoff = True
+            decision.handoff_reason = f"override:urgency={triage.urgency}"
+            decision.reasoning_trace.append(
+                f"override: forcing handoff due to urgency={triage.urgency!r}"
+            )
