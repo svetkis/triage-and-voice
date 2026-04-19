@@ -33,7 +33,7 @@ async def process_message(user_message: str, history: list[ChatMessage]) -> BotR
         # 3. Voice (optional — only if voice_response action fired)
         if decision.voice_call is not None:
             persona = decision.voice_call.persona
-            persona_path = _gate._config.personas[persona]
+            persona_path = _gate.persona_template_path(persona)
             response_text = await generate_response(
                 decision.voice_call,
                 decision.payload,
