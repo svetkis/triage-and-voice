@@ -13,7 +13,12 @@ def test_loads_valid_yaml():
     assert "greeting" in cfg.categories
 
 
-def test_malformed_yaml_raises():
+def test_missing_file_raises():
     bad = FIXTURES / "not_a_file.yaml"
     with pytest.raises(FileNotFoundError):
         load_config(bad)
+
+
+def test_schema_violation_raises_validation_error():
+    with pytest.raises(ValidationError):
+        load_config(FIXTURES / "malformed.yaml")
