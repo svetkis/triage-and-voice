@@ -1,5 +1,6 @@
 """Triage classifier — calls LLM with structured outputs, returns a parsed TriageResult."""
 
+from functools import lru_cache
 from pathlib import Path
 
 from openai import AsyncOpenAI
@@ -14,6 +15,7 @@ class TriageFailure(Exception):
     """Raised when the triage LLM returns no parsed content (e.g. content-filter block)."""
 
 
+@lru_cache
 def _get_client() -> AsyncOpenAI:
     settings = get_settings()
     return AsyncOpenAI(
@@ -24,6 +26,7 @@ def _get_client() -> AsyncOpenAI:
     )
 
 
+@lru_cache
 def _load_prompt() -> str:
     return _PROMPT_PATH.read_text(encoding="utf-8")
 
