@@ -330,6 +330,42 @@ All configuration is via environment variables (or `.env` file):
 
 ---
 
+## Known Limitations
+
+This is a reference implementation of an architectural pattern, not a hardened
+production service. The following security limitations are deliberately left
+unfixed to keep the code focused:
+
+### Prompt injection via client-supplied history
+
+`/chat/*` accepts an arbitrary `history` list
+([src/api.py:21-24](src/api.py#L21-L24)). A client can submit forged
+`assistant` turns that steer the triage classifier — for example, injecting a
+fake prior assistant message that reclassifies a `safety_issue` as
+`out_of_scope` and strips the escalation.
+**Mitigation:** trust only server-stored conversation state, or drop
+`assistant` turns from the client payload before passing to triage.
+
+### No authentication, no size limits (cost-DoS)
+
+Endpoints are unauthenticated and impose no caps on `message` or `history`
+length. Every request fans out to two LLM calls (triage + voice), so an
+attacker can drive unbounded provider cost.
+**Mitigation:** add auth, per-key rate limits, and hard caps on message length
+and history turn count.
+
+### Unvalidated `order_id` reaches the voice prompt
+
+The gate reads `order_id` from triage output and injects it into the voice
+system prompt without shape validation
+([src/gate.py:60](src/gate.py#L60)). A crafted `order_id` value can smuggle
+instructions into the voice call, undermining the pattern's core guarantee
+that the voice only sees verified data.
+**Mitigation:** validate at the gate boundary, e.g.
+`re.fullmatch(r"ORD-\d+", order_id)`, and reject mismatches before lookup.
+
+---
+
 ## Links
 
 - Article: [Why your LLM product hallucinates the one thing it shouldn't](https://substack.com/home/post/p-193325003)
