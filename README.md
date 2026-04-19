@@ -13,6 +13,23 @@ of critical data like policies, contacts, and order details.
 
 ---
 
+**An architectural pattern for LLM products that treats user emotional state as
+a first-class routing signal — because sycophancy under emotional pressure is
+the one thing prompt engineering cannot fix.**
+
+When an LLM built to be helpful meets a user in grief, fear, or desperation,
+it drifts into accommodation: it generates whatever seems to "help" — including
+policies, procedures, numbers, and contacts that do not exist. This is a
+documented failure mode (Sharma et al. 2024, ELEPHANT benchmark, Anthropic
+research on sycophancy) and it cannot be reliably prompted away.
+
+Triage-and-Voice solves this architecturally by classifying both intent and
+emotional state before generation, then injecting critical facts from verified
+sources — so the LLM call that speaks to the user never decides what's allowed
+to be said.
+
+---
+
 ## The Problem
 
 LLM products that bake facts into system prompts hallucinate those facts.
@@ -21,8 +38,11 @@ prompt -- produces responses that look correct but contain invented numbers,
 wrong deadlines, and fabricated contact information.
 
 This is not a theoretical risk. In 2024, Air Canada's chatbot hallucinated a
-refund policy that did not exist. A customer relied on it. The airline lost in
-court and had to honor the hallucinated policy.
+refund policy for a grieving customer who was booking a last-minute flight to
+a funeral. The customer relied on the invented procedure. The airline lost in
+tribunal and had to honor the hallucinated policy. This is not a coincidence:
+LLMs drift into accommodation under emotional pressure, and "just add more
+rules to the prompt" doesn't help.
 
 The more critical the data, the more dangerous the hallucination. A wrong
 phone number for a safety hotline is not a UX problem -- it is a liability.
@@ -67,9 +87,10 @@ flowchart LR
 
 **How it works:**
 
-1. **Triage** -- an LLM call that classifies the message and outputs structured
-   JSON (category, urgency, requested data keys, extracted entities). It writes
-   no user-facing text.
+1. **Triage** -- an LLM call that classifies the message along two dimensions —
+   **intent** (what the user wants) and **emotional state** (how they're
+   framing it). Outputs structured JSON: category, urgency, requested data
+   keys, extracted entities. Writes no user-facing text.
 2. **Gate** -- a pure Python function (no LLM). It reads the triage output and
    makes deterministic decisions: which voice persona to use, what verified data
    to inject, whether to escalate to a human. Every rule is testable.
@@ -543,9 +564,11 @@ and history turn count.
 
 ## Links
 
-- Article: [Why your LLM product hallucinates the one thing it shouldn't](https://substack.com/home/post/p-193325003)
-- Companion eval framework: [triage-voice-eval](https://github.com/svetkis/triage-voice-eval) — binary safety verdicts, persona fan-out, trend analysis
-- Author: [Svetlana Dudinova](https://github.com/svetkis)
+- **Deep dive (Russian):** [Why your LLM product hallucinates the one thing it shouldn't](https://habr.com/ru/articles/1019592/) — original pattern introduction
+- **Cross-industry analysis (Russian):** [Охотник за факапами](TODO-habr-article-2-url) — Air Canada, Chevrolet, legal industry
+- **English version:** [Substack](https://substack.com/home/post/p-193325003)
+- **Companion eval framework:** [triage-voice-eval](https://github.com/svetkis/triage-voice-eval) — binary safety verdicts, persona fan-out, trend analysis
+- **Author:** [Svetlana Dudinova](https://github.com/svetkis)
 
 ## License
 
