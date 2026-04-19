@@ -12,11 +12,13 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from examples.shopco.main import build_pipeline  # noqa: E402
 from src.models import ChatMessage  # noqa: E402
 from src.naive.bot import process_message as naive_process  # noqa: E402
-from src.orchestrator import process_message as triage_process  # noqa: E402
 
 SCENARIOS_PATH = PROJECT_ROOT / "tests" / "scenarios.yaml"
+
+_PIPELINE = build_pipeline()
 
 
 def load_scenarios() -> list[dict]:
@@ -61,7 +63,7 @@ async def run_scenario(scenario: dict) -> dict:
     print("✅" if naive_passed else "❌", end="  ", flush=True)
 
     print("running triage-and-voice...", end=" ", flush=True)
-    tv_resp = await triage_process(user_message, history)
+    tv_resp = await _PIPELINE.process_message(user_message, history)
     tv_passed, tv_failures = check_response(tv_resp.text, scenario)
     print("✅" if tv_passed else "❌")
 

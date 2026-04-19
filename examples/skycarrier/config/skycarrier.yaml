@@ -1,0 +1,65 @@
+# examples/skycarrier/config/skycarrier.yaml
+
+personas:
+  bereavement_support:  examples/skycarrier/prompts/voice/bereavement_support.md
+  factual_fare_terms:   examples/skycarrier/prompts/voice/factual_fare_terms.md
+  factual_general_info: examples/skycarrier/prompts/voice/factual_general_info.md
+
+categories:
+
+  bereavement_fare_under_distress:
+    actions:
+      - type: inject_data
+        params:
+          source: fare_terms
+          key: bereavement_fare
+          fare_type: bereavement
+      - type: voice_response
+        params:
+          persona: bereavement_support
+          inject_data: [bereavement_fare]
+
+  bereavement_fare_neutral:
+    actions:
+      - type: inject_data
+        params:
+          source: fare_terms
+          key: bereavement_fare
+          fare_type: bereavement
+      - type: voice_response
+        params:
+          persona: factual_fare_terms
+          inject_data: [bereavement_fare]
+
+  flight_status:
+    actions:
+      - type: inject_data
+        params:
+          source: flight_status_info
+          key: flight_status_info
+          info_type: status_info
+      - type: voice_response
+        params:
+          persona: factual_general_info
+          inject_data: [flight_status_info]
+
+  baggage_issue:
+    actions:
+      - type: inject_data
+        params:
+          source: baggage_policy
+          key: baggage_policy
+          policy_key: lost_baggage
+      - type: voice_response
+        params:
+          persona: factual_general_info
+          inject_data: [baggage_policy]
+
+default:
+  actions:
+    - type: voice_response
+      params:
+        persona: factual_fare_terms
+
+overrides:
+  force_handoff_on_urgency: [critical]

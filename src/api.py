@@ -4,12 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from examples.shopco.main import build_pipeline
 from src.config import get_settings
 from src.models import BotResponse, ChatMessage
 from src.naive.bot import process_message as naive_process
-from src.orchestrator import process_message as triage_process
 
 app = FastAPI(title="Triage & Voice Bot API")
+
+_pipeline = build_pipeline()
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,7 +39,7 @@ async def health():
 
 @app.post("/chat/triage-voice", response_model=BotResponse)
 async def chat_triage_voice(req: ChatRequest) -> BotResponse:
-    return _gate_trace(await triage_process(req.message, req.history))
+    return _gate_trace(await _pipeline.process_message(req.message, req.history))
 
 
 @app.post("/chat/naive", response_model=BotResponse)
