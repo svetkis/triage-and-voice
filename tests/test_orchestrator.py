@@ -7,6 +7,7 @@ import pytest
 from src.models import BotResponse, ChatMessage, GateDecision, TriageResult
 from src.orchestrator import process_message
 from src.triage import TriageFailure
+from src.voice import VoiceFailure
 
 
 def _make_triage_result(**overrides) -> TriageResult:
@@ -67,6 +68,23 @@ async def test_unexpected_exception_returns_fallback(history: list[ChatMessage])
 
     assert result.human_handoff is True
     assert "human agent" in result.text.lower()
+
+
+async def test_voice_failure_returns_fallback_with_human_handoff(history: list[ChatMessage]):
+    """When voice raises VoiceFailure (e.g. content-filter), return fallback with human_handoff=True."""
+    triage_result = _make_triage_result()
+    gate_decision = _make_gate_decision()
+
+    with (
+        patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=triage_result),
+        patch("src.orchestrator.apply_gate", return_value=gate_decision),
+        patch("src.orchestrator.generate_response", new_callable=AsyncMock, side_effect=VoiceFailure("content filtered")),
+    ):
+        result = await process_message("Help me", history)
+
+    assert result.human_handoff is True
+    assert "human agent" in result.text.lower()
+    assert any("voice" in t.lower() for t in result.trace)
 
 
 async def test_trace_includes_gate_reasoning(history: list[ChatMessage]):

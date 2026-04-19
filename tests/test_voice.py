@@ -1,14 +1,16 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from src.models import GateDecision
-from src.voice import generate_response
+from src.voice import VoiceFailure, generate_response
 
 
-def _make_chat_completion(content: str) -> SimpleNamespace:
+def _make_chat_completion(content: str | None, finish_reason: str = "stop") -> SimpleNamespace:
     """Build a fake ChatCompletion matching the OpenAI SDK structure."""
     message = SimpleNamespace(content=content, role="assistant")
-    choice = SimpleNamespace(message=message, index=0, finish_reason="stop")
+    choice = SimpleNamespace(message=message, index=0, finish_reason=finish_reason)
     return SimpleNamespace(id="fake", choices=[choice])
 
 
@@ -106,3 +108,17 @@ async def test_llm_called_with_temperature_07(mock_get_client: AsyncMock):
 
     call_args = mock_get_client.return_value.chat.completions.create.call_args
     assert call_args.kwargs["temperature"] == 0.7
+
+
+@patch("src.voice._get_client")
+async def test_none_content_raises_voice_failure(mock_get_client: AsyncMock):
+    """Content-filter / safety refusal returns content=None — must raise VoiceFailure, not pass empty string."""
+    client = AsyncMock()
+    client.chat.completions.create = AsyncMock(
+        return_value=_make_chat_completion(None, finish_reason="content_filter"),
+    )
+    mock_get_client.return_value = client
+    gate = GateDecision(voice_persona="default_friendly", injected_data={})
+
+    with pytest.raises(VoiceFailure, match="content_filter"):
+        await generate_response(gate, "Something forbidden", history=[])
