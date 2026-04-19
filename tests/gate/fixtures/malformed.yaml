@@ -1,0 +1,2 @@
+overrides:
+  force_handoff_on_urgency: "critical"
