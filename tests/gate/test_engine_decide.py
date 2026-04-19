@@ -56,6 +56,8 @@ def test_non_listed_urgency_does_not_trigger_override():
 
 def test_unknown_action_type_error_includes_locus():
     gate = Gate.from_yaml(FIXTURES / "unknown_action_type.yaml")
+    # Bypass freeze validation to exercise the dispatch-time error path.
+    gate._frozen = True
     with pytest.raises(KeyError) as exc:
         gate.decide(_triage(category="refund"))
     msg = str(exc.value)
@@ -65,6 +67,8 @@ def test_unknown_action_type_error_includes_locus():
 
 def test_unknown_source_error_includes_locus():
     gate = Gate.from_yaml(FIXTURES / "unknown_source.yaml")
+    # Bypass freeze validation to exercise the dispatch-time error path.
+    gate._frozen = True
     with pytest.raises(KeyError) as exc:
         gate.decide(_triage(category="refund"))
     msg = str(exc.value)

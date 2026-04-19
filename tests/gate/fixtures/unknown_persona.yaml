@@ -1,0 +1,10 @@
+personas:
+  warm: prompts/voice/warm.md
+categories:
+  refund:
+    actions:
+      - type: voice_response
+        params:
+          persona: formall
+default:
+  actions: []
