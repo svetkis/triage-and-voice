@@ -5,20 +5,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 # Type aliases for readability
-Category = Literal[
-    "order_status",
-    "refund_request",
-    "product_question",
-    "complaint",
-    "legal_threat",
-    "safety_issue",
-    "out_of_scope",
-]
+Category = str
 Urgency = Literal["low", "medium", "high", "critical"]
 EmotionalState = Literal["neutral", "frustrated", "angry", "distressed"]
-VoicePersona = Literal[
-    "default_friendly", "formal", "empathetic_escalation", "polite_refusal"
-]
+VoicePersona = str
 
 
 class ExtractedEntities(BaseModel):
