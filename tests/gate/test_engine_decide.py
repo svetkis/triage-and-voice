@@ -31,3 +31,22 @@ def test_decide_runs_all_actions_for_matching_category():
     assert decision.payload["contact_info"] == "1-800-URGENT"
     assert decision.voice_call.persona == "warm"
     assert decision.voice_call.inject_data_keys == ["contact_info"]
+
+
+def test_unknown_category_falls_back_to_default():
+    gate = Gate.from_yaml(FIXTURES / "with_overrides.yaml")
+    decision = gate.decide(_triage(category="something_new"))
+    assert decision.voice_call.persona == "warm"
+
+
+def test_critical_urgency_forces_handoff_when_listed_in_overrides():
+    gate = Gate.from_yaml(FIXTURES / "with_overrides.yaml")
+    decision = gate.decide(_triage(category="refund", urgency="critical"))
+    assert decision.handoff is True
+    assert "override" in " ".join(decision.reasoning_trace).lower()
+
+
+def test_non_listed_urgency_does_not_trigger_override():
+    gate = Gate.from_yaml(FIXTURES / "with_overrides.yaml")
+    decision = gate.decide(_triage(category="refund", urgency="medium"))
+    assert decision.handoff is False
