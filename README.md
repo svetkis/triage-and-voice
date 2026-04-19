@@ -105,43 +105,68 @@ The triage-and-voice response will contain the correct refund policy
 ```
 triage-and-voice/
 ├── src/
-│   ├── api.py              # FastAPI endpoints: /chat/triage-voice, /chat/naive, /health
-│   ├── config.py            # Settings via pydantic-settings (.env + defaults)
-│   ├── models.py            # Domain models: TriageResult, GateDecision, BotResponse
-│   ├── triage.py            # Triage classifier — LLM call → structured JSON
-│   ├── gate.py              # Deterministic gate — pure function, no LLM
-│   ├── voice.py             # Voice generator — Jinja2 persona prompts + LLM
-│   ├── orchestrator.py      # Pipeline: triage → gate → voice with fallback
-│   ├── repository.py        # Data access: orders, policies, escalation contacts
+│   ├── api.py              # FastAPI endpoints
+│   ├── config.py           # Settings via pydantic-settings (.env + defaults)
+│   ├── models.py           # Domain models: TriageResult, ExtractedEntities, ChatMessage, BotResponse
+│   ├── triage.py           # Triage classifier — LLM call → structured JSON
+│   ├── gate/               # Gate framework — reusable, domain-neutral
+│   │   ├── __init__.py     #   Public API: Gate, GateAction, DataSource, GateDecision
+│   │   ├── contracts.py    #   GateAction and DataSource Protocols
+│   │   ├── config.py       #   Pydantic schema + YAML loader
+│   │   ├── decision.py     #   GateDecision accumulator + VoiceCallSpec
+│   │   ├── engine.py       #   Gate class — dispatch, registries, freeze()
+│   │   └── actions/        #   Three built-in action types
+│   │       ├── handoff.py
+│   │       ├── inject_data.py
+│   │       └── voice_response.py
+│   ├── voice.py            # Voice generator — Jinja2 persona prompt + LLM
+│   ├── orchestrator.py     # Pipeline: triage → gate → voice with fallback
 │   └── naive/
-│       └── bot.py           # Naive single-prompt bot (baseline)
+│       └── bot.py          # Naive single-prompt bot (baseline)
+├── examples/
+│   └── shopco/             # Worked example — support bot using the framework
+│       ├── main.py         #   build_gate() — registers sources, freezes, returns Gate
+│       ├── sources.py      #   OrderSource, PolicySource, ContactsSource
+│       ├── config/
+│       │   └── shopco.yaml #   Declarative gate config
+│       └── tests/
+│           ├── test_sources.py       # Data source unit tests
+│           └── test_shopco_flow.py   # Acceptance tests against the full config
 ├── prompts/
-│   ├── triage.md            # Triage classifier system prompt
-│   ├── naive/bot.md         # Naive bot prompt (intentionally has wrong data)
-│   └── voice/               # Persona prompt templates (Jinja2)
+│   ├── triage.md
+│   ├── naive/bot.md
+│   └── voice/              # Persona prompt templates (referenced from shopco.yaml)
 │       ├── default_friendly.md
 │       ├── formal.md
 │       ├── empathetic_escalation.md
 │       └── polite_refusal.md
-├── data/
-│   ├── orders.json          # Sample order database (6 orders)
-│   ├── policies.json        # Refund and warranty policies (source of truth)
-│   └── escalation_contacts.json  # Safety hotline, legal dept, general support
-├── tests/
-│   ├── scenarios.yaml       # 12 eval scenarios with expected outcomes
-│   ├── test_gate.py         # Gate unit tests
-│   ├── test_models.py       # Model validation tests
-│   ├── test_orchestrator.py # Pipeline integration tests
-│   ├── test_repository.py   # Data access tests
-│   ├── test_triage.py       # Triage parser tests
-│   └── test_voice.py        # Voice prompt rendering tests
-├── scripts/
-│   └── run_eval.py          # Eval runner: naive vs triage-and-voice comparison
-├── .env.example             # Environment variables template
-├── .github/workflows/test.yml  # CI: pytest on push/PR
-├── Makefile                 # install, test, eval, serve
-├── pyproject.toml           # Project config (Python 3.11+, dependencies)
-└── LICENSE                  # MIT
+├── data/                   # ShopCo example data (consumed by examples/shopco/sources.py)
+│   ├── orders.json
+│   ├── policies.json
+│   └── escalation_contacts.json
+├── tests/                  # Framework tests (engine, actions, config — no ShopCo)
+│   ├── gate/
+│   │   ├── fixtures/*.yaml
+│   │   ├── test_decision.py
+│   │   ├── test_config.py
+│   │   ├── test_config_loader.py
+│   │   ├── test_engine_construction.py
+│   │   ├── test_engine_decide.py
+│   │   ├── test_engine_freeze.py
+│   │   └── actions/
+│   │       ├── test_handoff.py
+│   │       ├── test_inject_data.py
+│   │       └── test_voice_response.py
+│   ├── test_models.py
+│   ├── test_orchestrator.py
+│   ├── test_triage.py
+│   └── test_voice.py
+├── scripts/run_eval.py
+├── .env.example
+├── .github/workflows/test.yml
+├── Makefile
+├── pyproject.toml
+└── LICENSE
 ```
 
 ---
@@ -208,35 +233,82 @@ triage-and-voice bot passes because the gate injects verified data.
 
 ---
 
-## How the Gate Works
+## The Framework
 
-The gate (`src/gate.py`) is a pure function: `TriageResult → GateDecision`.
-No LLM calls, no network, no side effects. Fully testable.
+The gate is not a single file — it's a small reusable framework. One consumer
+declares their behaviour in YAML and registers data sources in Python; the
+engine does the rest.
 
-### Gate Rules (priority order)
+### Three built-in action types
 
-| Category       | Voice Persona            | Data Injected                | Human Handoff |
-|----------------|--------------------------|------------------------------|---------------|
-| `safety_issue` | `empathetic_escalation`  | Safety hotline contact       | Yes (immediate return) |
-| `legal_threat` | `formal`                 | Legal department email       | Yes           |
-| `out_of_scope` | `polite_refusal`         | None                         | No            |
-| _(default)_    | `default_friendly`       | None (before data injection) | No            |
+After triage, the gate dispatches a list of actions per category. Three types
+ship in the core:
 
-### Data Injection Rules (applied after persona selection)
+| Action             | What it does                                              |
+|--------------------|-----------------------------------------------------------|
+| `handoff`          | Sets the "escalate to human" flag with a reason           |
+| `inject_data`      | Pulls a value from a registered source into the payload   |
+| `voice_response`   | Declares the LLM should be invoked with a specific persona and payload keys |
 
-| Requested Data   | What Gets Injected                          |
-|------------------|---------------------------------------------|
-| `refund_policy`  | Policy text from `data/policies.json`       |
-| `order_status`   | Order details from `data/orders.json` by ID |
+Anything else — returning a document, fetching a price list, posting to Slack —
+is a custom action type the consumer registers:
 
-### Override Rules
+```python
+from src.gate import Gate, GateAction
 
-| Condition              | Effect                     |
-|------------------------|----------------------------|
-| `urgency == "critical"` | Force `human_handoff = True` |
+class NotifySlackAction:
+    def apply(self, triage, decision, params):
+        ...
 
-Every rule produces a `reasoning_trace` entry, visible in the API response
-for debugging.
+gate.register_action("notify_slack", NotifySlackAction())
+```
+
+### Data sources are consumer-owned
+
+The framework does not know about orders, policies, or contacts. The consumer
+defines `DataSource` implementations and registers them by name:
+
+```python
+gate.register_source("orders", OrderSource())
+gate.register_source("policies", PolicySource())
+```
+
+YAML then references these source names in `inject_data` actions.
+
+### YAML is the single declarative artefact
+
+A consumer's entire gate behaviour fits in one YAML file. Example from
+[`examples/shopco/config/shopco.yaml`](examples/shopco/config/shopco.yaml):
+
+```yaml
+categories:
+  safety_issue:
+    actions:
+      - type: handoff
+        params: {reason: safety_incident}
+      - type: inject_data
+        params:
+          source: escalation_contacts
+          key: safety_hotline
+          contact_key: safety_hotline
+      - type: voice_response
+        params:
+          persona: empathetic_escalation
+          inject_data: [safety_hotline]
+```
+
+### Startup validation
+
+`Gate.freeze()` walks the full config and fails loud on unknown action types,
+unknown persona references, or unknown source references. Called automatically
+on the first `decide()` if the consumer didn't call it explicitly. Typos in
+YAML fail at startup, not at the first live request.
+
+### The worked example
+
+[`examples/shopco/`](examples/shopco/) is the full reference implementation —
+the support-bot scenarios used throughout this README. Read it alongside this
+doc; the YAML there is the concrete form of the pattern.
 
 ---
 
@@ -256,31 +328,39 @@ facts -- it gets them from the gate, which reads from `data/`.
 
 ## Extending
 
+All extension points live in YAML and in the consumer package. Core framework
+code in `src/gate/` is not edited.
+
 ### Add a new triage category
 
-1. Add the category to the `Category` literal in `src/models.py`
-2. Add classification rules to `prompts/triage.md`
-3. Add a gate rule in `src/gate.py` (the `apply_gate` function)
-4. Add test scenarios to `tests/scenarios.yaml`
+1. Add the category to the triage prompt (`prompts/triage.md`) so the classifier returns it.
+2. Add the category to the consumer YAML (e.g. `examples/shopco/config/shopco.yaml`) under `categories:` with the desired action list.
+3. Add scenarios to `tests/scenarios.yaml` for eval.
 
-### Add a new gate rule
+### Add a new data source
 
-1. Add the rule to `apply_gate()` in `src/gate.py` -- mind priority order
-2. If the rule needs new data, add a data source in `data/` and a getter in
-   `src/repository.py`
-3. Add a unit test in `tests/test_gate.py`
+1. Write a class in your consumer package (e.g. `examples/shopco/sources.py`) implementing `fetch(params: dict) -> str | None`.
+2. Register it in your `build_gate()` factory: `gate.register_source("my_source", MySource())`.
+3. Reference it from YAML under `inject_data` actions.
+
+### Add a new action type
+
+1. Write a class implementing `apply(triage, decision, params) -> None`.
+2. Register it: `gate.register_action("my_action", MyAction())`.
+3. Use it in YAML under any category's action list.
 
 ### Add a new voice persona
 
-1. Create a Jinja2 template in `prompts/voice/{persona_name}.md`
-2. Add the persona name to the `VoicePersona` literal in `src/models.py`
-3. Reference it from a gate rule in `src/gate.py`
+1. Create a Jinja2 template at `prompts/voice/{persona_name}.md`.
+2. Add the persona name → template path mapping in YAML under `personas:`.
+3. Reference it from any `voice_response` action's `persona` param.
+
+Persona names are arbitrary strings — the framework does not maintain a closed enum.
 
 ### Use a different LLM provider
 
 Set `OPENAI_BASE_URL` in `.env` to any OpenAI-compatible endpoint
-(OpenRouter, Azure, local Ollama, etc.). The code uses the standard
-`openai` Python SDK.
+(OpenRouter, Azure, local Ollama, etc.).
 
 ---
 
@@ -358,16 +438,6 @@ length. Every request fans out to two LLM calls (triage + voice), so an
 attacker can drive unbounded provider cost.
 **Mitigation:** add auth, per-key rate limits, and hard caps on message length
 and history turn count.
-
-### Unvalidated `order_id` reaches the voice prompt
-
-The gate reads `order_id` from triage output and injects it into the voice
-system prompt without shape validation
-([src/gate.py:60](src/gate.py#L60)). A crafted `order_id` value can smuggle
-instructions into the voice call, undermining the pattern's core guarantee
-that the voice only sees verified data.
-**Mitigation:** validate at the gate boundary, e.g.
-`re.fullmatch(r"ORD-\d+", order_id)`, and reject mismatches before lookup.
 
 ---
 
