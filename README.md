@@ -201,6 +201,10 @@ The naive bot typically fails on scenarios that require exact data (policies,
 contacts, order details) because it hallucinates those values. The
 triage-and-voice bot passes because the gate injects verified data.
 
+> For a reusable eval framework with binary safety verdicts (`HELD` / `BROKE` /
+> `LEAK` / `MISS` / `SAFE`), persona fan-out, and cross-run trend analysis, see
+> the companion project [triage-voice-eval](https://github.com/svetkis/triage-voice-eval).
+
 ---
 
 ## How the Gate Works
@@ -369,8 +373,7 @@ that the voice only sees verified data.
 ## Links
 
 - Article: [Why your LLM product hallucinates the one thing it shouldn't](https://substack.com/home/post/p-193325003)
-<!-- TODO: add link when published -->
-- Safety Eval Framework repo: _(coming soon)_
+- Companion eval framework: [triage-voice-eval](https://github.com/svetkis/triage-voice-eval) — binary safety verdicts, persona fan-out, trend analysis
 - Author: [Svetlana Dudinova](https://github.com/svetkis)
 
 ## License
