@@ -5,7 +5,6 @@ import pytest
 from src.gate.engine import Gate
 from src.models import ExtractedEntities, TriageResult
 
-
 FIXTURES = Path(__file__).parent / "fixtures"
 
 

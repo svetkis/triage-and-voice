@@ -1,4 +1,4 @@
-"""Triage classifier — calls LLM and parses structured JSON response."""
+"""Triage classifier — calls LLM with structured outputs, returns a parsed TriageResult."""
 
 from pathlib import Path
 
@@ -9,14 +9,9 @@ from src.models import ChatMessage, TriageResult
 
 _PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "triage.md"
 
-_RETRY_SUFFIX = (
-    "\n\nYour previous response was not valid JSON. "
-    "You MUST respond with ONLY a raw JSON object, no markdown, no explanation."
-)
-
 
 class TriageFailure(Exception):
-    """Raised when the triage classifier fails to produce valid JSON after retries."""
+    """Raised when the triage LLM returns no parsed content (e.g. content-filter block)."""
 
 
 def _get_client() -> AsyncOpenAI:
@@ -25,6 +20,7 @@ def _get_client() -> AsyncOpenAI:
         api_key=settings.openai_api_key,
         base_url=settings.openai_base_url,
         timeout=settings.llm_timeout_seconds,
+        max_retries=settings.llm_max_retries,
     )
 
 
@@ -33,7 +29,7 @@ def _load_prompt() -> str:
 
 
 async def run_triage(user_message: str, history: list[ChatMessage]) -> TriageResult:
-    """Classify a user message via LLM. Retries once on invalid JSON."""
+    """Classify a user message via LLM using structured outputs."""
     client = _get_client()
     settings = get_settings()
     system_prompt = _load_prompt()
@@ -43,34 +39,17 @@ async def run_triage(user_message: str, history: list[ChatMessage]) -> TriageRes
         messages.append({"role": msg.role, "content": msg.content})
     messages.append({"role": "user", "content": user_message})
 
-    # First attempt
-    raw = await _call_llm(client, settings.model, messages)
-    result = _try_parse(raw)
-    if result is not None:
-        return result
-
-    # Retry with stricter prompt
-    messages[0] = {"role": "system", "content": system_prompt + _RETRY_SUFFIX}
-    raw = await _call_llm(client, settings.model, messages)
-    result = _try_parse(raw)
-    if result is not None:
-        return result
-
-    raise TriageFailure(f"Failed to parse triage response after retry. Last raw: {raw!r}")
-
-
-async def _call_llm(client: AsyncOpenAI, model: str, messages: list[dict]) -> str:
-    response = await client.chat.completions.create(
-        model=model,
+    response = await client.beta.chat.completions.parse(
+        model=settings.model,
         messages=messages,
-        response_format={"type": "json_object"},
-        temperature=0.1,
+        response_format=TriageResult,
+        temperature=0.0,
+        seed=settings.llm_seed,
     )
-    return response.choices[0].message.content
-
-
-def _try_parse(raw: str) -> TriageResult | None:
-    try:
-        return TriageResult.model_validate_json(raw)
-    except Exception:
-        return None
+    parsed = response.choices[0].message.parsed
+    if parsed is None:
+        raise TriageFailure(
+            "Triage LLM returned no parsed content "
+            f"(finish_reason={response.choices[0].finish_reason!r})."
+        )
+    return parsed

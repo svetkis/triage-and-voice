@@ -81,7 +81,11 @@ async def test_voice_failure_returns_fallback_with_human_handoff(history: list[C
     with (
         patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=triage_result),
         patch.object(orchestrator_module._gate, "decide", return_value=gate_decision),
-        patch("src.orchestrator.generate_response", new_callable=AsyncMock, side_effect=VoiceFailure("content filtered")),
+        patch(
+            "src.orchestrator.generate_response",
+            new_callable=AsyncMock,
+            side_effect=VoiceFailure("content filtered"),
+        ),
     ):
         result = await process_message("Help me", history)
 

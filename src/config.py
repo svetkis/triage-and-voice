@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     model: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 60.0
+    llm_max_retries: int = 3
+    llm_seed: int = 42
     model_config = {"env_file": ".env"}
 
 

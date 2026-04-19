@@ -3,7 +3,7 @@ from pathlib import Path
 from src.gate.actions.handoff import HandoffAction
 from src.gate.actions.inject_data import InjectDataAction
 from src.gate.actions.voice_response import VoiceResponseAction
-from src.gate.config import GateConfig, load_config
+from src.gate.config import ActionSpec, GateConfig, load_config
 from src.gate.contracts import DataSource, GateAction
 from src.gate.decision import GateDecision
 from src.models import TriageResult
@@ -84,7 +84,14 @@ class Gate:
         self._apply_overrides(triage, decision)
         return decision
 
-    def _run_action(self, spec, triage, decision, category_name, index):
+    def _run_action(
+        self,
+        spec: ActionSpec,
+        triage: TriageResult,
+        decision: GateDecision,
+        category_name: str,
+        index: int,
+    ) -> None:
         locus = f"categories.{category_name}.actions[{index}]"
         action = self._actions.get(spec.type)
         if action is None:

@@ -4,9 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from src.models import ChatMessage, BotResponse
-from src.orchestrator import process_message as triage_process
+from src.models import BotResponse, ChatMessage
 from src.naive.bot import process_message as naive_process
+from src.orchestrator import process_message as triage_process
 
 app = FastAPI(title="Triage & Voice Bot API")
 

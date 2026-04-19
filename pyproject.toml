@@ -29,12 +29,13 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "openai>=1.0",
+    "openai>=1.40",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
     "fastapi>=0.110",
@@ -55,8 +56,25 @@ Changelog     = "https://github.com/svetkis/triage-and-voice/blob/main/CHANGELOG
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "types-PyYAML>=6.0",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests", "examples"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/gate", "src/models.py", "src/config.py", "src/orchestrator.py"]
+disallow_untyped_defs = true
+warn_unused_ignores = true
+ignore_missing_imports = true

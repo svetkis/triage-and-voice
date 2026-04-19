@@ -16,6 +16,7 @@ def _get_client() -> AsyncOpenAI:
         api_key=settings.openai_api_key,
         base_url=settings.openai_base_url,
         timeout=settings.llm_timeout_seconds,
+        max_retries=settings.llm_max_retries,
     )
 
 
@@ -37,6 +38,7 @@ async def process_message(user_message: str, history: list[ChatMessage]) -> BotR
         model=settings.model,
         messages=messages,
         temperature=0.7,
+        seed=settings.llm_seed,
     )
 
     text = response.choices[0].message.content or ""

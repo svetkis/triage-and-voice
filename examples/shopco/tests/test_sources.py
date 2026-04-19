@@ -1,4 +1,4 @@
-from examples.shopco.sources import OrderSource, PolicySource, ContactsSource
+from examples.shopco.sources import ContactsSource, OrderSource, PolicySource
 
 
 def test_order_source_returns_string_for_known_id():
