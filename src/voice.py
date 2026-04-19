@@ -1,4 +1,4 @@
-"""Voice module — generates user-facing responses using persona prompts with injected verified data."""
+"""Voice module — generates user-facing responses from a persona template + injected data."""
 
 from pathlib import Path
 
@@ -6,9 +6,8 @@ from jinja2 import Environment, FileSystemLoader
 from openai import AsyncOpenAI
 
 from src.config import get_settings
-from src.models import ChatMessage, GateDecision
-
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts" / "voice"
+from src.gate.decision import VoiceCallSpec
+from src.models import ChatMessage
 
 
 class VoiceFailure(Exception):
@@ -24,15 +23,18 @@ def _get_client() -> AsyncOpenAI:
     )
 
 
-def _render_prompt(persona: str, injected_data: dict[str, str]) -> str:
-    """Load and render a Jinja2 persona prompt template."""
-    env = Environment(loader=FileSystemLoader(str(_PROMPTS_DIR)), keep_trailing_newline=True)
-    template = env.get_template(f"{persona}.md")
+def _render_prompt_from_path(path_str: str, injected_data: dict[str, str]) -> str:
+    """Load and render a Jinja2 persona prompt template from an explicit path."""
+    path = Path(path_str)
+    env = Environment(loader=FileSystemLoader(str(path.parent)), keep_trailing_newline=True)
+    template = env.get_template(path.name)
     return template.render(injected_data=injected_data)
 
 
 async def generate_response(
-    gate_decision: GateDecision,
+    voice_call: VoiceCallSpec,
+    payload: dict[str, str],
+    persona_template_path: str,
     user_message: str,
     history: list[ChatMessage],
 ) -> str:
@@ -40,7 +42,9 @@ async def generate_response(
     client = _get_client()
     settings = get_settings()
 
-    system_prompt = _render_prompt(gate_decision.voice_persona, gate_decision.injected_data)
+    # Only keys the voice_call explicitly asked for are passed to the LLM.
+    injected_for_llm = {k: payload[k] for k in voice_call.inject_data_keys if k in payload}
+    system_prompt = _render_prompt_from_path(persona_template_path, injected_for_llm)
 
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
     for msg in history:

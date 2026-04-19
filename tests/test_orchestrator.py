@@ -4,7 +4,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.models import BotResponse, ChatMessage, GateDecision, TriageResult
+import src.orchestrator as orchestrator_module
+from src.gate.decision import GateDecision, VoiceCallSpec
+from src.models import BotResponse, ChatMessage, TriageResult
 from src.orchestrator import process_message
 from src.triage import TriageFailure
 from src.voice import VoiceFailure
@@ -18,8 +20,9 @@ def _make_triage_result(**overrides) -> TriageResult:
 
 def _make_gate_decision(**overrides) -> GateDecision:
     defaults = {
-        "voice_persona": "default_friendly",
-        "human_handoff": False,
+        "handoff": False,
+        "payload": {},
+        "voice_call": VoiceCallSpec(persona="default_friendly", inject_data_keys=[]),
         "reasoning_trace": ["Category product_question → default_friendly."],
     }
     defaults.update(overrides)
@@ -38,7 +41,7 @@ async def test_full_pipeline_returns_correct_bot_response(history: list[ChatMess
 
     with (
         patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=triage_result),
-        patch("src.orchestrator.apply_gate", return_value=gate_decision),
+        patch.object(orchestrator_module._gate, "decide", return_value=gate_decision),
         patch("src.orchestrator.generate_response", new_callable=AsyncMock, return_value="Here's the answer!"),
     ):
         result = await process_message("What color is it?", history)
@@ -77,7 +80,7 @@ async def test_voice_failure_returns_fallback_with_human_handoff(history: list[C
 
     with (
         patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=triage_result),
-        patch("src.orchestrator.apply_gate", return_value=gate_decision),
+        patch.object(orchestrator_module._gate, "decide", return_value=gate_decision),
         patch("src.orchestrator.generate_response", new_callable=AsyncMock, side_effect=VoiceFailure("content filtered")),
     ):
         result = await process_message("Help me", history)
@@ -96,7 +99,7 @@ async def test_trace_includes_gate_reasoning(history: list[ChatMessage]):
 
     with (
         patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=triage_result),
-        patch("src.orchestrator.apply_gate", return_value=gate_decision),
+        patch.object(orchestrator_module._gate, "decide", return_value=gate_decision),
         patch("src.orchestrator.generate_response", new_callable=AsyncMock, return_value="Policy info here."),
     ):
         result = await process_message("I want a refund", history)
