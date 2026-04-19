@@ -2,6 +2,7 @@
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
+[![Tests](https://github.com/svetkis/triage-and-voice/actions/workflows/test.yml/badge.svg)](https://github.com/svetkis/triage-and-voice/actions/workflows/test.yml)
 
 A reference implementation of the **Triage-and-Voice** architectural pattern.
 Shows how splitting a single LLM call into **triage** (structured analysis) +
