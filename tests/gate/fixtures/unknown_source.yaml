@@ -1,0 +1,11 @@
+personas:
+  warm: prompts/voice/warm.md
+categories:
+  refund:
+    actions:
+      - type: inject_data
+        params:
+          source: nonexistent_source
+          key: x
+default:
+  actions: []

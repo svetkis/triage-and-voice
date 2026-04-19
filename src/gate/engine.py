@@ -33,17 +33,20 @@ class Gate:
 
     def decide(self, triage: TriageResult) -> GateDecision:
         decision = GateDecision()
+        category_name = triage.category if triage.category in self._config.categories else "default"
         rule = self._config.categories.get(triage.category) or self._config.default
-        for action_spec in rule.actions:
-            self._run_action(action_spec, triage, decision)
+        for index, action_spec in enumerate(rule.actions):
+            self._run_action(action_spec, triage, decision, category_name, index)
         self._apply_overrides(triage, decision)
         return decision
 
-    def _run_action(self, spec, triage, decision):
+    def _run_action(self, spec, triage, decision, category_name, index):
+        locus = f"categories.{category_name}.actions[{index}]"
         action = self._actions.get(spec.type)
         if action is None:
-            raise KeyError(f"unknown action type: {spec.type!r}")
-        action.apply(triage, decision, spec.params)
+            raise KeyError(f"unknown action type {spec.type!r} at {locus}")
+        params_with_locus = {**spec.params, "_locus": locus}
+        action.apply(triage, decision, params_with_locus)
 
     def _apply_overrides(self, triage: TriageResult, decision: GateDecision) -> None:
         forced = self._config.overrides.force_handoff_on_urgency
