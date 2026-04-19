@@ -1,0 +1,13 @@
+personas:
+  neutral: prompts/voice/neutral.md
+categories:
+  greeting:
+    actions:
+      - type: voice_response
+        params:
+          persona: neutral
+default:
+  actions:
+    - type: voice_response
+      params:
+        persona: neutral
