@@ -8,7 +8,6 @@ from pydantic import BaseModel
 Category = str
 Urgency = Literal["low", "medium", "high", "critical"]
 EmotionalState = Literal["neutral", "frustrated", "angry", "distressed"]
-VoicePersona = str
 
 
 class ExtractedEntities(BaseModel):
@@ -26,25 +25,9 @@ class TriageResult(BaseModel):
     user_emotional_state: EmotionalState = "neutral"
 
 
-class GateDecision(BaseModel):
-    """Deterministic gate output."""
-
-    voice_persona: VoicePersona = "default_friendly"
-    injected_data: dict[str, str] = {}
-    human_handoff: bool = False
-    reasoning_trace: list[str] = []
-
-
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
-
-
-class VoiceInput(BaseModel):
-    persona: VoicePersona
-    user_message: str
-    injected_data: dict[str, str] = {}
-    history: list[ChatMessage] = []
 
 
 class BotResponse(BaseModel):
