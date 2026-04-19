@@ -1,0 +1,86 @@
+"""Tests for the orchestrator pipeline."""
+
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from src.models import BotResponse, ChatMessage, GateDecision, TriageResult
+from src.orchestrator import process_message
+from src.triage import TriageFailure
+
+
+def _make_triage_result(**overrides) -> TriageResult:
+    defaults = {"category": "product_question", "urgency": "low"}
+    defaults.update(overrides)
+    return TriageResult(**defaults)
+
+
+def _make_gate_decision(**overrides) -> GateDecision:
+    defaults = {
+        "voice_persona": "default_friendly",
+        "human_handoff": False,
+        "reasoning_trace": ["Category product_question → default_friendly."],
+    }
+    defaults.update(overrides)
+    return GateDecision(**defaults)
+
+
+@pytest.fixture
+def history() -> list[ChatMessage]:
+    return [ChatMessage(role="user", content="Hi")]
+
+
+async def test_full_pipeline_returns_correct_bot_response(history: list[ChatMessage]):
+    """Full pipeline: triage → gate → voice produces correct BotResponse."""
+    triage_result = _make_triage_result()
+    gate_decision = _make_gate_decision()
+
+    with (
+        patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=triage_result),
+        patch("src.orchestrator.apply_gate", return_value=gate_decision),
+        patch("src.orchestrator.generate_response", new_callable=AsyncMock, return_value="Here's the answer!"),
+    ):
+        result = await process_message("What color is it?", history)
+
+    assert isinstance(result, BotResponse)
+    assert result.text == "Here's the answer!"
+    assert result.human_handoff is False
+    assert "triage: category=product_question, urgency=low" in result.trace
+    assert "Category product_question → default_friendly." in result.trace
+    assert "voice: persona=default_friendly" in result.trace
+
+
+async def test_triage_failure_returns_fallback_with_human_handoff(history: list[ChatMessage]):
+    """When triage raises TriageFailure, return fallback BotResponse with human_handoff=True."""
+    with patch("src.orchestrator.run_triage", new_callable=AsyncMock, side_effect=TriageFailure("LLM down")):
+        result = await process_message("Help me", history)
+
+    assert result.human_handoff is True
+    assert "human agent" in result.text.lower()
+    assert any("error" in t.lower() or "triage" in t.lower() for t in result.trace)
+
+
+async def test_unexpected_exception_returns_fallback(history: list[ChatMessage]):
+    """When triage raises an unexpected Exception, return fallback BotResponse."""
+    with patch("src.orchestrator.run_triage", new_callable=AsyncMock, side_effect=RuntimeError("boom")):
+        result = await process_message("Help me", history)
+
+    assert result.human_handoff is True
+    assert "human agent" in result.text.lower()
+
+
+async def test_trace_includes_gate_reasoning(history: list[ChatMessage]):
+    """Trace should include all gate reasoning entries."""
+    triage_result = _make_triage_result(category="refund_request", urgency="medium", requested_data=["refund_policy"])
+    gate_decision = _make_gate_decision(
+        reasoning_trace=["Category refund_request → default_friendly.", "Injected refund_policy from repository."],
+    )
+
+    with (
+        patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=triage_result),
+        patch("src.orchestrator.apply_gate", return_value=gate_decision),
+        patch("src.orchestrator.generate_response", new_callable=AsyncMock, return_value="Policy info here."),
+    ):
+        result = await process_message("I want a refund", history)
+
+    assert "Injected refund_policy from repository." in result.trace
