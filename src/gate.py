@@ -1,7 +1,11 @@
 """Deterministic gate: routes triage results to voice personas with data injection."""
 
+import re
+
 from src.models import GateDecision, TriageResult
 from src import repository
+
+_ORDER_ID_PATTERN = re.compile(r"ORD-\d+")
 
 
 def apply_gate(triage: TriageResult) -> GateDecision:
@@ -58,7 +62,7 @@ def apply_gate(triage: TriageResult) -> GateDecision:
 
     if "order_status" in triage.requested_data:
         order_id = triage.extracted_entities.order_id
-        if order_id:
+        if order_id and _ORDER_ID_PATTERN.fullmatch(order_id):
             order = repository.get_order(order_id)
             if order:
                 tracking = f", tracking: {order['tracking']}" if order.get("tracking") else ""
@@ -75,6 +79,11 @@ def apply_gate(triage: TriageResult) -> GateDecision:
                 decision.reasoning_trace.append(
                     f"Order {order_id} not found, injected not-found message."
                 )
+        elif order_id:
+            decision.injected_data["order_status"] = "Order not found in our system."
+            decision.reasoning_trace.append(
+                "Malformed order_id rejected, injected not-found message."
+            )
 
     # ── Urgency override ─────────────────────────────────────────────────
     if triage.urgency == "critical" and not decision.human_handoff:
