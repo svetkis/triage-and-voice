@@ -1,8 +1,9 @@
 """Voice module — generates user-facing responses from a persona template + injected data."""
 
+from functools import lru_cache
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, Template
 from openai import AsyncOpenAI
 
 from src.config import get_settings
@@ -14,6 +15,7 @@ class VoiceFailure(Exception):
     """Raised when the voice LLM returns no usable content (e.g. content-filter block)."""
 
 
+@lru_cache
 def _get_client() -> AsyncOpenAI:
     settings = get_settings()
     return AsyncOpenAI(
@@ -24,12 +26,16 @@ def _get_client() -> AsyncOpenAI:
     )
 
 
-def _render_prompt_from_path(path_str: str, injected_data: dict[str, str]) -> str:
-    """Load and render a Jinja2 persona prompt template from an explicit path."""
+@lru_cache
+def _get_template(path_str: str) -> Template:
     path = Path(path_str)
     env = Environment(loader=FileSystemLoader(str(path.parent)), keep_trailing_newline=True)
-    template = env.get_template(path.name)
-    return template.render(injected_data=injected_data)
+    return env.get_template(path.name)
+
+
+def _render_prompt_from_path(path_str: str, injected_data: dict[str, str]) -> str:
+    """Load and render a Jinja2 persona prompt template from an explicit path."""
+    return _get_template(path_str).render(injected_data=injected_data)
 
 
 async def generate_response(

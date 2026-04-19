@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 60.0
     llm_max_retries: int = 3
     llm_seed: int = 42
+    expose_trace: bool = False
     model_config = {"env_file": ".env"}
 
 

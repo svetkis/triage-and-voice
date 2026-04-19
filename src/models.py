@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Type aliases for readability
 Category = str
@@ -20,8 +20,8 @@ class TriageResult(BaseModel):
 
     category: Category
     urgency: Urgency
-    requested_data: list[str] = []
-    extracted_entities: ExtractedEntities = ExtractedEntities()
+    requested_data: list[str] = Field(default_factory=list)
+    extracted_entities: ExtractedEntities = Field(default_factory=ExtractedEntities)
     user_emotional_state: EmotionalState = "neutral"
 
 
@@ -33,4 +33,4 @@ class ChatMessage(BaseModel):
 class BotResponse(BaseModel):
     text: str
     human_handoff: bool = False
-    trace: list[str] = []
+    trace: list[str] = Field(default_factory=list)

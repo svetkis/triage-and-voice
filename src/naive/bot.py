@@ -1,5 +1,6 @@
 """Naive single-prompt bot — baseline for comparison with triage-and-voice."""
 
+from functools import lru_cache
 from pathlib import Path
 
 from openai import AsyncOpenAI
@@ -10,6 +11,7 @@ from src.models import BotResponse, ChatMessage
 _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "naive" / "bot.md"
 
 
+@lru_cache
 def _get_client() -> AsyncOpenAI:
     settings = get_settings()
     return AsyncOpenAI(
@@ -20,6 +22,7 @@ def _get_client() -> AsyncOpenAI:
     )
 
 
+@lru_cache
 def _load_prompt() -> str:
     return _PROMPT_PATH.read_text(encoding="utf-8")
 
