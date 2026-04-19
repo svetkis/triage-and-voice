@@ -1,9 +1,13 @@
 """Orchestrator — chains triage → gate → voice into a complete pipeline."""
 
+import logging
+
 from src.models import BotResponse, ChatMessage
 from src.triage import run_triage, TriageFailure
 from src.gate import apply_gate
-from src.voice import generate_response
+from src.voice import generate_response, VoiceFailure
+
+logger = logging.getLogger(__name__)
 
 _FALLBACK_TEXT = (
     "I'm sorry, I'm having trouble processing your request. "
@@ -34,10 +38,20 @@ async def process_message(user_message: str, history: list[ChatMessage]) -> BotR
             trace=trace,
         )
 
+    except TriageFailure as exc:
+        logger.warning("triage failed: %s", exc)
+        trace.append(f"triage failed: {exc}")
+
+    except VoiceFailure as exc:
+        logger.warning("voice failed: %s", exc)
+        trace.append(f"voice failed: {exc}")
+
     except Exception as exc:
+        logger.exception("unexpected pipeline failure")
         trace.append(f"pipeline error: {type(exc).__name__}: {exc}")
-        return BotResponse(
-            text=_FALLBACK_TEXT,
-            human_handoff=True,
-            trace=trace,
-        )
+
+    return BotResponse(
+        text=_FALLBACK_TEXT,
+        human_handoff=True,
+        trace=trace,
+    )

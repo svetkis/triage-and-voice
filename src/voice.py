@@ -11,9 +11,17 @@ from src.models import ChatMessage, GateDecision
 _PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts" / "voice"
 
 
+class VoiceFailure(Exception):
+    """Raised when the voice LLM returns no usable content (e.g. content-filter block)."""
+
+
 def _get_client() -> AsyncOpenAI:
     settings = get_settings()
-    return AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
+    return AsyncOpenAI(
+        api_key=settings.openai_api_key,
+        base_url=settings.openai_base_url,
+        timeout=settings.llm_timeout_seconds,
+    )
 
 
 def _render_prompt(persona: str, injected_data: dict[str, str]) -> str:
@@ -44,4 +52,10 @@ async def generate_response(
         messages=messages,
         temperature=0.7,
     )
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+    if content is None:
+        raise VoiceFailure(
+            f"Voice LLM returned no content (finish_reason={response.choices[0].finish_reason!r}); "
+            "likely content-filter block."
+        )
+    return content
