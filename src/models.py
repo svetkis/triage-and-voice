@@ -1,4 +1,4 @@
-"""Shared pydantic models — pattern types (TriageResult, ExtractedEntities) and transport types (ChatMessage, BotResponse)."""
+"""Shared pydantic models — pattern + transport types (TriageResult, ChatMessage, BotResponse)."""
 
 from typing import Literal
 

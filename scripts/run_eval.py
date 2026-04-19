@@ -3,7 +3,7 @@
 import asyncio
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -162,7 +162,7 @@ async def main():
     report = generate_report(results)
 
     # Save to eval-runs/run-{timestamp}/
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     run_dir = PROJECT_ROOT / "eval-runs" / f"run-{ts}"
     run_dir.mkdir(parents=True, exist_ok=True)
 

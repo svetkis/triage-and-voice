@@ -1,7 +1,5 @@
-import pytest
-from pydantic import ValidationError
 
-from src.gate.config import GateConfig, ActionSpec, CategoryRule
+from src.gate.config import ActionSpec, CategoryRule, GateConfig
 
 
 def test_minimal_valid_config():

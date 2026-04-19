@@ -2,7 +2,6 @@ import json
 import re
 from pathlib import Path
 
-
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _ORDER_ID_PATTERN = re.compile(r"ORD-\d+")
 

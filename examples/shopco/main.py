@@ -3,7 +3,6 @@ from pathlib import Path
 from examples.shopco.sources import ContactsSource, OrderSource, PolicySource
 from src.gate.engine import Gate
 
-
 _CONFIG_PATH = Path(__file__).parent / "config" / "shopco.yaml"
 
 

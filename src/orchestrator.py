@@ -4,8 +4,8 @@ import logging
 
 from examples.shopco.main import build_gate
 from src.models import BotResponse, ChatMessage
-from src.triage import run_triage, TriageFailure
-from src.voice import generate_response, VoiceFailure
+from src.triage import TriageFailure, run_triage
+from src.voice import VoiceFailure, generate_response
 
 logger = logging.getLogger(__name__)
 

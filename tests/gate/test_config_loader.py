@@ -1,9 +1,9 @@
 from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
 from src.gate.config import load_config
-
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

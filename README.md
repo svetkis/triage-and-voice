@@ -1,8 +1,10 @@
 # triage-and-voice
 
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+[![CI](https://github.com/svetkis/triage-and-voice/actions/workflows/test.yml/badge.svg)](https://github.com/svetkis/triage-and-voice/actions/workflows/test.yml)
+![Python 3.11 | 3.12 | 3.13](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)
+![Ruff](https://img.shields.io/badge/lint-ruff-46a?logo=ruff)
+![Mypy](https://img.shields.io/badge/type--check-mypy-2a6db2)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
-[![Tests](https://github.com/svetkis/triage-and-voice/actions/workflows/test.yml/badge.svg)](https://github.com/svetkis/triage-and-voice/actions/workflows/test.yml)
 
 A reference implementation of the **Triage-and-Voice** architectural pattern.
 Shows how splitting a single LLM call into **triage** (structured analysis) +
@@ -28,6 +30,20 @@ phone number for a safety hotline is not a UX problem -- it is a liability.
 This repo demonstrates the problem with a concrete side-by-side comparison:
 a **naive bot** (single prompt, facts baked in) vs a **triage-and-voice bot**
 (structured pipeline, facts injected from verified sources).
+
+```mermaid
+flowchart LR
+    M["User: 'I want to return<br/>order ORD-001'"]
+
+    M --> N["Naive bot<br/>(single prompt,<br/>facts baked in)"]
+    N --> NR["<b>30-day</b> refund window<br/>email: help@shopco.com<br/>❌ both hallucinated"]
+
+    M --> TV["Triage &rarr; Gate &rarr; Voice<br/>(verified data injected)"]
+    TV --> TR["<b>14-day</b> refund window<br/>email: support@shopco.example<br/>✅ from policies.json"]
+
+    style NR fill:#fdd,stroke:#a00,color:#000
+    style TR fill:#dfd,stroke:#0a0,color:#000
+```
 
 For a deep dive, see the article:
 [Why your LLM product hallucinates the one thing it shouldn't](https://substack.com/home/post/p-193325003).
@@ -97,6 +113,13 @@ curl -s http://localhost:8000/chat/naive \
 The triage-and-voice response will contain the correct refund policy
 ("14 days", from `data/policies.json`). The naive bot will likely say
 "30 days" -- the wrong number baked into its prompt.
+
+### Run with Docker
+
+```bash
+docker build -t triage-and-voice .
+docker run --rm -p 8000:8000 -e OPENAI_API_KEY="$OPENAI_API_KEY" triage-and-voice
+```
 
 ---
 
@@ -425,7 +448,46 @@ All configuration is via environment variables (or `.env` file):
 
 ---
 
-## Known Limitations
+## Limitations & Trade-offs
+
+### Cost — two LLM calls per request
+
+Every user message fans out to two model calls (triage + voice). Compared to
+a single-prompt bot, expect roughly 2× the per-request token cost. Triage uses
+a tight JSON schema and runs at `temperature=0`, so its token count is
+predictable and small; voice is the larger of the two.
+
+### Latency — sequential, not parallel
+
+Triage and voice are sequential: the gate needs the triage category and
+extracted entities before it can decide which persona and which data to inject.
+Observed p95 on `gpt-4o-mini`: ~1.5-3s vs ~0.8-1.5s for the naive single call.
+The pattern is not a fit for ultra-low-latency UX (streaming voice, autocomplete).
+
+### Cascading triage errors
+
+If triage mis-classifies (e.g. a `safety_issue` lands as `complaint`), the gate
+runs the wrong action list and voice receives the wrong data. There is no
+post-hoc recovery: voice cannot see that triage was wrong because voice only
+sees what the gate injected. Mitigation is on the triage side — keep the
+category list short, keep prompt examples sharp, and cover mis-classification
+paths in the eval (`tests/scenarios.yaml`).
+
+### Threat model
+
+**What the pattern mitigates.** Hallucination of *injected* data: policies,
+contacts, and order details are read from verified sources by the gate and
+cannot be fabricated by the voice LLM.
+
+**What the pattern does not mitigate.** Anything the voice LLM generates from
+its own parametric knowledge (small talk, tone, paraphrasing of injected
+facts). Prompt injection via the client-supplied `history` list. Model-level
+jailbreaks that bypass the persona prompt. See "Known Security Limitations"
+below for specifics.
+
+---
+
+## Known Security Limitations
 
 This is a reference implementation of an architectural pattern, not a hardened
 production service. The following security limitations are deliberately left
