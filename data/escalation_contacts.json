@@ -1,0 +1,5 @@
+{
+  "safety_hotline": {"phone": "+1-800-SAFETY-00", "email": "safety@shopco.example"},
+  "legal_department_email": {"email": "legal@shopco.example"},
+  "general_support": {"email": "support@shopco.example", "hours": "Mon-Fri 9am-6pm EST"}
+}

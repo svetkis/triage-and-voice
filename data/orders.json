@@ -1,0 +1,8 @@
+{
+  "ORD-001": {"status": "shipped", "tracking": "TRACK-9876", "product": "Wireless Headphones", "amount": 79.99},
+  "ORD-002": {"status": "in_transit", "tracking": "TRACK-5432", "product": "USB-C Hub", "amount": 34.99},
+  "ORD-003": {"status": "delivered", "tracking": "TRACK-1111", "product": "Laptop Stand", "amount": 49.99},
+  "ORD-004": {"status": "returned", "tracking": null, "product": "Phone Case", "amount": 19.99},
+  "ORD-005": {"status": "cancelled", "tracking": null, "product": "Bluetooth Speaker", "amount": 59.99},
+  "ORD-006": {"status": "processing", "tracking": null, "product": "Mechanical Keyboard", "amount": 129.99}
+}
