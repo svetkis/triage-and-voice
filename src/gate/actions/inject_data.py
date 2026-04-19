@@ -14,9 +14,11 @@ class InjectDataAction:
         if source_name not in self._sources:
             raise KeyError(f"unknown data source {source_name!r} at {locus}")
 
-        value = self._sources[source_name].fetch(
-            {k: v for k, v in params.items() if k not in ("source", "key", "_locus")}
-        )
+        entity_params = triage.extracted_entities.model_dump(exclude_none=True)
+        explicit_params = {k: v for k, v in params.items() if k not in ("source", "key", "_locus")}
+        merged = {**entity_params, **explicit_params}
+
+        value = self._sources[source_name].fetch(merged)
         if value is not None:
             decision.payload[key] = value
             decision.reasoning_trace.append(

@@ -46,3 +46,42 @@ def test_unknown_source_raises():
     action = InjectDataAction({})
     with pytest.raises(KeyError):
         action.apply(_triage(), GateDecision(), {"source": "nope", "key": "x"})
+
+
+def test_extracted_entities_are_passed_to_source():
+    captured = {}
+
+    class Capture:
+        def fetch(self, params):
+            captured.update(params)
+            return "ok"
+
+    action = InjectDataAction({"cap": Capture()})
+    triage = TriageResult(
+        category="product_question", urgency="medium",
+        requested_data=[],
+        extracted_entities=ExtractedEntities(order_id="ORD-42"),
+        user_emotional_state="neutral",
+    )
+    action.apply(triage, GateDecision(), {"source": "cap", "key": "x"})
+
+    assert captured.get("order_id") == "ORD-42"
+
+
+def test_explicit_yaml_params_override_entities():
+    captured = {}
+
+    class Capture:
+        def fetch(self, params):
+            captured.update(params)
+            return "ok"
+
+    action = InjectDataAction({"cap": Capture()})
+    triage = TriageResult(
+        category="product_question", urgency="medium",
+        requested_data=[],
+        extracted_entities=ExtractedEntities(order_id="ORD-42"),
+        user_emotional_state="neutral",
+    )
+    action.apply(triage, GateDecision(), {"source": "cap", "key": "x", "order_id": "OVERRIDE"})
+    assert captured["order_id"] == "OVERRIDE"
