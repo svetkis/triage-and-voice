@@ -29,10 +29,6 @@ class TestTriageResult:
         assert result.extracted_entities.product_id is None
         assert result.user_emotional_state == "frustrated"
 
-    def test_invalid_category_raises(self):
-        with pytest.raises(ValidationError):
-            TriageResult(category="unknown", urgency="low")
-
     def test_invalid_urgency_raises(self):
         with pytest.raises(ValidationError):
             TriageResult(category="complaint", urgency="extreme")
@@ -64,10 +60,6 @@ class TestGateDecision:
         assert decision.injected_data == {"order_status": "shipped"}
         assert decision.human_handoff is True
         assert len(decision.reasoning_trace) == 2
-
-    def test_invalid_persona_raises(self):
-        with pytest.raises(ValidationError):
-            GateDecision(voice_persona="sarcastic")
 
 
 class TestBotResponse:

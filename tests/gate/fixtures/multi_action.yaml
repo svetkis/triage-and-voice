@@ -1,0 +1,23 @@
+personas:
+  warm: prompts/voice/warm.md
+categories:
+  emergency:
+    stop_on_match: true
+    actions:
+      - type: handoff
+        params:
+          reason: urgent
+      - type: inject_data
+        params:
+          source: hotline
+          key: contact_info
+      - type: voice_response
+        params:
+          persona: warm
+          inject_data: [contact_info]
+
+default:
+  actions:
+    - type: voice_response
+      params:
+        persona: warm

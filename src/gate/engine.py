@@ -32,4 +32,14 @@ class Gate:
         self._actions[name] = action
 
     def decide(self, triage: TriageResult) -> GateDecision:
-        raise NotImplementedError  # Task 9
+        decision = GateDecision()
+        rule = self._config.categories.get(triage.category) or self._config.default
+        for action_spec in rule.actions:
+            self._run_action(action_spec, triage, decision)
+        return decision
+
+    def _run_action(self, spec, triage, decision):
+        action = self._actions.get(spec.type)
+        if action is None:
+            raise KeyError(f"unknown action type: {spec.type!r}")
+        action.apply(triage, decision, spec.params)
