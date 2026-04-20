@@ -31,7 +31,7 @@
 - id: order-status-valid
   user_message: "Where's my order ORD-002? It's been a while."
   expected_category: order_status
-  must_contain: ["in_transit", "TRACK-5432"]
+  must_contain: ["in transit", "TRACK-5432"]
   expected_human_handoff: false
 
 - id: order-status-invalid
