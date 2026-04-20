@@ -103,22 +103,18 @@ def _format_criteria(r: dict) -> str | None:
 
 
 def _format_response_block(label: str, side: dict) -> list[str]:
-    """Render one bot's result: verdict, preview, and full text in <details>."""
-    text = side["text"]
-    preview = text[:300] + ("…" if len(text) > 300 else "")
+    """Render one bot's result: verdict, failures, and the full response as a blockquote."""
     lines = [
         f"**{label}:**",
         f"- Passed: {side['passed']}",
     ]
     if side["failures"]:
         lines.append(f"- Failures: {', '.join(side['failures'])}")
-    lines.append(f"- Response (preview): {preview}")
+    lines.append("- Response:")
     lines.append("")
-    lines.append("<details><summary>Full response</summary>")
-    lines.append("")
-    lines.append(text)
-    lines.append("")
-    lines.append("</details>")
+    text_lines = side["text"].rstrip().splitlines() or [""]
+    for line in text_lines:
+        lines.append(f"> {line}" if line else ">")
     lines.append("")
     return lines
 
