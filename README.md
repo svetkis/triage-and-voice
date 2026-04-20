@@ -18,15 +18,12 @@ a first-class routing signal — because sycophancy under emotional pressure is
 the one thing prompt engineering cannot fix.**
 
 When an LLM built to be helpful meets a user in grief, fear, or desperation,
-it drifts into accommodation: it generates whatever seems to "help" — including
-policies, procedures, numbers, and contacts that do not exist. This is a
-documented failure mode (Sharma et al. 2024, ELEPHANT benchmark, Anthropic
-research on sycophancy) and it cannot be reliably prompted away.
-
-Triage-and-Voice solves this architecturally by classifying both intent and
-emotional state before generation, then injecting critical facts from verified
-sources — so the LLM call that speaks to the user never decides what's allowed
-to be said.
+it drifts into accommodation, generating whatever seems to "help" — including
+policies, procedures, numbers, and contacts that do not exist (Sharma et al.
+2024; ELEPHANT benchmark; Anthropic research on sycophancy). Triage-and-Voice
+solves this architecturally: classify both intent and emotional state *before*
+generation, then inject critical facts from verified sources — so the LLM call
+that speaks to the user never decides what's allowed to be said.
 
 ---
 
@@ -64,53 +61,6 @@ flowchart LR
     style NR fill:#fdd,stroke:#a00,color:#000
     style TR fill:#dfd,stroke:#0a0,color:#000
 ```
-
-For a deep dive, see the article:
-[Why your LLM product hallucinates the one thing it shouldn't](https://lanaapps.substack.com/p/why-your-llm-product-hallucinates).
-
----
-
-## Why this isn't new: the call-center playbook
-
-Customer support has worked by script for forty years — telephone call centers
-in the 80s, chat support in the 2010s, any large service desk today. Not
-because operators are slow, but because humans under pressure also drift: an
-irate customer, an AHT clock, an unfamiliar case, and accuracy gives way to
-fluency. The industry learned this early and moved the fragile part — *what*
-to say — out of the operator's head and into an external decision layer.
-
-Two axes of escalation are built into every modern playbook, and they fire
-independently:
-
-- **Authority gap** — the operator can't approve what the customer is asking.
-  That's an *intent* problem.
-- **Emotional intensity** — the customer is at the edge; empathy comes before
-  logic. That's a *state* problem.
-
-The HEARD framework (Hear, Empathize, Acknowledge, Resolve, Diagnose) codified
-the second one decades ago: process the emotion before the answer, or the
-answer isn't heard. Modern contact-center platforms score sentiment in real
-time and page a supervisor when it crosses a threshold — a wholly separate
-trigger from whether the operator has authority to resolve the case.
-
-The mechanical split maps onto this pattern:
-
-| Call-center role                                                            | This pattern    |
-|-----------------------------------------------------------------------------|-----------------|
-| Supervisor system — classifies call by intent and sentiment                 | **Triage**      |
-| Playbook — branching catalog of categories and responses                    | **YAML config** |
-| Runtime that reads the playbook, pulls data, hands the page to the operator | **Gate**        |
-| Operator — reads the answer to the customer                                 | **Voice**       |
-
-The operator doesn't hold escalation rules in their head — the rules live in
-the playbook, and the gate enforces them. **The script sits at the gate, not
-at the voice.** This is the detail most LLM support implementations miss when
-they stuff policies, tone, and decision rules into one system prompt.
-
-And the LLM needs this script *more* than a human does, not less. An
-experienced operator learns over months not to buckle under emotional
-pressure; a model starts every conversation from the same weights, with
-sycophancy baked in. Repetition doesn't harden it. The architecture has to.
 
 ---
 
@@ -171,34 +121,6 @@ because it never sees one -- it only sees the exact policy text the gate injecte
 
 ---
 
-## Prior art and where this fits
-
-Triage-and-Voice doesn't introduce new building blocks. Each of its components
-maps to established practices: triage to semantic routing and classification —
-here widened to route on emotional state alongside intent — the gate to
-deterministic tool execution and grounded RAG, voice to constrained generation. What this project contributes is a named
-architectural pattern that binds them into a discipline:
-
-**The LLM call that speaks to the user must never be the one that decides what's
-allowed to be said.**
-
-This discipline is not enforced by orchestration frameworks (LangGraph, Burr,
-DSPy) — it's enforced by how you structure your prompts and gates inside them.
-Naming the discipline makes it reviewable: engineers can point to a pattern
-violation in code review instead of re-arguing first principles every time.
-
-**Related work:**
-- Orchestration mechanisms: LangGraph, Burr, DSPy, Haystack
-- Input/output validation: Guardrails AI, NeMo Guardrails
-- Intent routing: semantic-router
-- Constrained generation: Instructor, Outlines
-- Evaluation frameworks: DeepEval, promptfoo, RAGAS
-
-Triage-and-Voice is a composition discipline that can be implemented on top of
-any of these.
-
----
-
 ## Quickstart
 
 ```bash
@@ -234,79 +156,6 @@ The triage-and-voice response will contain the correct refund policy
 ```bash
 docker build -t triage-and-voice .
 docker run --rm -p 8000:8000 -e OPENAI_API_KEY="$OPENAI_API_KEY" triage-and-voice
-```
-
----
-
-## Project Structure
-
-```
-triage-and-voice/
-├── src/
-│   ├── api.py              # FastAPI endpoints
-│   ├── config.py           # Settings via pydantic-settings (.env + defaults)
-│   ├── models.py           # Domain models: TriageResult, ExtractedEntities, ChatMessage, BotResponse
-│   ├── triage.py           # Triage classifier — LLM call → structured JSON
-│   ├── gate/               # Gate framework — reusable, domain-neutral
-│   │   ├── __init__.py     #   Public API: Gate, GateAction, DataSource, GateDecision
-│   │   ├── contracts.py    #   GateAction and DataSource Protocols
-│   │   ├── config.py       #   Pydantic schema + YAML loader
-│   │   ├── decision.py     #   GateDecision accumulator + VoiceCallSpec
-│   │   ├── engine.py       #   Gate class — dispatch, registries, freeze()
-│   │   └── actions/        #   Three built-in action types
-│   │       ├── handoff.py
-│   │       ├── inject_data.py
-│   │       └── voice_response.py
-│   ├── voice.py            # Voice generator — Jinja2 persona prompt + LLM
-│   ├── orchestrator.py     # Pipeline: triage → gate → voice with fallback
-│   └── naive/
-│       └── bot.py          # Naive single-prompt bot (baseline)
-├── examples/               # Worked examples — each one a full consumer of the framework
-│   ├── shopco/             #   E-commerce support bot (used throughout this README)
-│   │   ├── main.py         #     build_gate() + build_pipeline() factories
-│   │   ├── sources.py      #     OrderSource, PolicySource, ContactsSource
-│   │   ├── config/shopco.yaml
-│   │   ├── prompts/        #     triage.md + voice/ personas (ShopCo-specific)
-│   │   └── tests/
-│   │       ├── test_sources.py
-│   │       └── test_shopco_flow.py
-│   └── skycarrier/         #   Airline support bot — demonstrates emotional-state routing
-│       ├── main.py         #     build_gate() + build_pipeline() for the airline domain
-│       ├── sources.py      #     FareTermsSource, FlightStatusInfoSource, BaggagePolicySource
-│       ├── config/skycarrier.yaml
-│       ├── data/           #     bereavement_fare.json, flight_status_info.json, baggage_policy.json
-│       ├── prompts/        #     Domain-specific triage.md + voice personas
-│       └── tests/test_skycarrier_flow.py
-├── prompts/
-│   └── naive/bot.md        # Naive single-prompt baseline (ShopCo data baked in, intentionally)
-├── data/                   # ShopCo example data (consumed by examples/shopco/sources.py)
-│   ├── orders.json
-│   ├── policies.json
-│   └── escalation_contacts.json
-├── tests/                  # Framework tests (engine, actions, config — no ShopCo)
-│   ├── gate/
-│   │   ├── fixtures/*.yaml
-│   │   ├── test_decision.py
-│   │   ├── test_config.py
-│   │   ├── test_config_loader.py
-│   │   ├── test_engine_construction.py
-│   │   ├── test_engine_decide.py
-│   │   ├── test_engine_freeze.py
-│   │   └── actions/
-│   │       ├── test_handoff.py
-│   │       ├── test_inject_data.py
-│   │       └── test_voice_response.py
-│   ├── scenarios.yaml      # 12 eval scenarios consumed by scripts/run_eval.py
-│   ├── test_models.py
-│   ├── test_orchestrator.py
-│   ├── test_triage.py
-│   └── test_voice.py
-├── scripts/run_eval.py
-├── .env.example
-├── .github/workflows/test.yml
-├── Makefile
-├── pyproject.toml
-└── LICENSE
 ```
 
 ---
@@ -486,6 +335,79 @@ Read either alongside this doc; the YAML there is the concrete form of the patte
 
 ---
 
+## Project Structure
+
+```
+triage-and-voice/
+├── src/
+│   ├── api.py              # FastAPI endpoints
+│   ├── config.py           # Settings via pydantic-settings (.env + defaults)
+│   ├── models.py           # Domain models: TriageResult, ExtractedEntities, ChatMessage, BotResponse
+│   ├── triage.py           # Triage classifier — LLM call → structured JSON
+│   ├── gate/               # Gate framework — reusable, domain-neutral
+│   │   ├── __init__.py     #   Public API: Gate, GateAction, DataSource, GateDecision
+│   │   ├── contracts.py    #   GateAction and DataSource Protocols
+│   │   ├── config.py       #   Pydantic schema + YAML loader
+│   │   ├── decision.py     #   GateDecision accumulator + VoiceCallSpec
+│   │   ├── engine.py       #   Gate class — dispatch, registries, freeze()
+│   │   └── actions/        #   Three built-in action types
+│   │       ├── handoff.py
+│   │       ├── inject_data.py
+│   │       └── voice_response.py
+│   ├── voice.py            # Voice generator — Jinja2 persona prompt + LLM
+│   ├── orchestrator.py     # Pipeline: triage → gate → voice with fallback
+│   └── naive/
+│       └── bot.py          # Naive single-prompt bot (baseline)
+├── examples/               # Worked examples — each one a full consumer of the framework
+│   ├── shopco/             #   E-commerce support bot (used throughout this README)
+│   │   ├── main.py         #     build_gate() + build_pipeline() factories
+│   │   ├── sources.py      #     OrderSource, PolicySource, ContactsSource
+│   │   ├── config/shopco.yaml
+│   │   ├── prompts/        #     triage.md + voice/ personas (ShopCo-specific)
+│   │   └── tests/
+│   │       ├── test_sources.py
+│   │       └── test_shopco_flow.py
+│   └── skycarrier/         #   Airline support bot — demonstrates emotional-state routing
+│       ├── main.py         #     build_gate() + build_pipeline() for the airline domain
+│       ├── sources.py      #     FareTermsSource, FlightStatusInfoSource, BaggagePolicySource
+│       ├── config/skycarrier.yaml
+│       ├── data/           #     bereavement_fare.json, flight_status_info.json, baggage_policy.json
+│       ├── prompts/        #     Domain-specific triage.md + voice personas
+│       └── tests/test_skycarrier_flow.py
+├── prompts/
+│   └── naive/bot.md        # Naive single-prompt baseline (ShopCo data baked in, intentionally)
+├── data/                   # ShopCo example data (consumed by examples/shopco/sources.py)
+│   ├── orders.json
+│   ├── policies.json
+│   └── escalation_contacts.json
+├── tests/                  # Framework tests (engine, actions, config — no ShopCo)
+│   ├── gate/
+│   │   ├── fixtures/*.yaml
+│   │   ├── test_decision.py
+│   │   ├── test_config.py
+│   │   ├── test_config_loader.py
+│   │   ├── test_engine_construction.py
+│   │   ├── test_engine_decide.py
+│   │   ├── test_engine_freeze.py
+│   │   └── actions/
+│   │       ├── test_handoff.py
+│   │       ├── test_inject_data.py
+│   │       └── test_voice_response.py
+│   ├── scenarios.yaml      # 12 eval scenarios consumed by scripts/run_eval.py
+│   ├── test_models.py
+│   ├── test_orchestrator.py
+│   ├── test_triage.py
+│   └── test_voice.py
+├── scripts/run_eval.py
+├── .env.example
+├── .github/workflows/test.yml
+├── Makefile
+├── pyproject.toml
+└── LICENSE
+```
+
+---
+
 ## The Naive Bot (Intentionally Wrong)
 
 The file `prompts/naive/bot.md` contains deliberately incorrect data:
@@ -589,6 +511,78 @@ All configuration is via environment variables (or `.env` file):
 
 ---
 
+## Why this isn't new: the call-center playbook
+
+Customer support has worked by script for forty years — telephone call centers
+in the 80s, chat support in the 2010s, any large service desk today. Not
+because operators are slow, but because humans under pressure also drift: an
+irate customer, an AHT clock, an unfamiliar case, and accuracy gives way to
+fluency. The industry learned this early and moved the fragile part — *what*
+to say — out of the operator's head and into an external decision layer.
+
+Two axes of escalation are built into every modern playbook, and they fire
+independently:
+
+- **Authority gap** — the operator can't approve what the customer is asking.
+  That's an *intent* problem.
+- **Emotional intensity** — the customer is at the edge; empathy comes before
+  logic. That's a *state* problem.
+
+The HEARD framework (Hear, Empathize, Acknowledge, Resolve, Diagnose) codified
+the second one decades ago: process the emotion before the answer, or the
+answer isn't heard. Modern contact-center platforms score sentiment in real
+time and page a supervisor when it crosses a threshold — a wholly separate
+trigger from whether the operator has authority to resolve the case.
+
+The mechanical split maps onto this pattern:
+
+| Call-center role                                                            | This pattern    |
+|-----------------------------------------------------------------------------|-----------------|
+| Supervisor system — classifies call by intent and sentiment                 | **Triage**      |
+| Playbook — branching catalog of categories and responses                    | **YAML config** |
+| Runtime that reads the playbook, pulls data, hands the page to the operator | **Gate**        |
+| Operator — reads the answer to the customer                                 | **Voice**       |
+
+The operator doesn't hold escalation rules in their head — the rules live in
+the playbook, and the gate enforces them. **The script sits at the gate, not
+at the voice.** This is the detail most LLM support implementations miss when
+they stuff policies, tone, and decision rules into one system prompt.
+
+And the LLM needs this script *more* than a human does, not less. An
+experienced operator learns over months not to buckle under emotional
+pressure; a model starts every conversation from the same weights, with
+sycophancy baked in. Repetition doesn't harden it. The architecture has to.
+
+---
+
+## Prior art and where this fits
+
+Triage-and-Voice doesn't introduce new building blocks. Each of its components
+maps to established practices: triage to semantic routing and classification —
+here widened to route on emotional state alongside intent — the gate to
+deterministic tool execution and grounded RAG, voice to constrained generation. What this project contributes is a named
+architectural pattern that binds them into a discipline:
+
+**The LLM call that speaks to the user must never be the one that decides what's
+allowed to be said.**
+
+This discipline is not enforced by orchestration frameworks (LangGraph, Burr,
+DSPy) — it's enforced by how you structure your prompts and gates inside them.
+Naming the discipline makes it reviewable: engineers can point to a pattern
+violation in code review instead of re-arguing first principles every time.
+
+**Related work:**
+- Orchestration mechanisms: LangGraph, Burr, DSPy, Haystack
+- Input/output validation: Guardrails AI, NeMo Guardrails
+- Intent routing: semantic-router
+- Constrained generation: Instructor, Outlines
+- Evaluation frameworks: DeepEval, promptfoo, RAGAS
+
+Triage-and-Voice is a composition discipline that can be implemented on top of
+any of these.
+
+---
+
 ## Limitations & Trade-offs
 
 ### Cost — two LLM calls per request
@@ -657,7 +651,6 @@ and history turn count.
 ## Links
 
 - **Deep dive (Russian):** [Why your LLM product hallucinates the one thing it shouldn't](https://habr.com/ru/articles/1019592/) — original pattern introduction
-- **Cross-industry analysis (Russian):** [Охотник за факапами](TODO-habr-article-2-url) — Air Canada, Chevrolet, legal industry
 - **English version:** [Substack](https://lanaapps.substack.com/p/why-your-llm-product-hallucinates)
 - **Companion eval framework:** [triage-voice-eval](https://github.com/svetkis/triage-voice-eval) — binary safety verdicts, persona fan-out, trend analysis
 - **Author:** [Svetlana Meleshkina](https://github.com/svetkis)
