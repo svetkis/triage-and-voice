@@ -219,27 +219,22 @@ triage-and-voice/
 │       └── bot.py          # Naive single-prompt bot (baseline)
 ├── examples/               # Worked examples — each one a full consumer of the framework
 │   ├── shopco/             #   E-commerce support bot (used throughout this README)
-│   │   ├── main.py         #     build_gate() — registers sources, freezes, returns Gate
+│   │   ├── main.py         #     build_gate() + build_pipeline() factories
 │   │   ├── sources.py      #     OrderSource, PolicySource, ContactsSource
 │   │   ├── config/shopco.yaml
+│   │   ├── prompts/        #     triage.md + voice/ personas (ShopCo-specific)
 │   │   └── tests/
 │   │       ├── test_sources.py
 │   │       └── test_shopco_flow.py
 │   └── skycarrier/         #   Airline support bot — demonstrates emotional-state routing
-│       ├── main.py         #     build_gate() for the airline domain
+│       ├── main.py         #     build_gate() + build_pipeline() for the airline domain
 │       ├── sources.py      #     FareTermsSource, FlightStatusInfoSource, BaggagePolicySource
 │       ├── config/skycarrier.yaml
 │       ├── data/           #     bereavement_fare.json, flight_status_info.json, baggage_policy.json
 │       ├── prompts/        #     Domain-specific triage.md + voice personas
 │       └── tests/test_skycarrier_flow.py
 ├── prompts/
-│   ├── triage.md
-│   ├── naive/bot.md
-│   └── voice/              # Persona prompt templates (referenced from shopco.yaml)
-│       ├── default_friendly.md
-│       ├── formal.md
-│       ├── empathetic_escalation.md
-│       └── polite_refusal.md
+│   └── naive/bot.md        # Naive single-prompt baseline (ShopCo data baked in, intentionally)
 ├── data/                   # ShopCo example data (consumed by examples/shopco/sources.py)
 │   ├── orders.json
 │   ├── policies.json
@@ -257,6 +252,7 @@ triage-and-voice/
 │   │       ├── test_handoff.py
 │   │       ├── test_inject_data.py
 │   │       └── test_voice_response.py
+│   ├── scenarios.yaml      # 12 eval scenarios consumed by scripts/run_eval.py
 │   ├── test_models.py
 │   ├── test_orchestrator.py
 │   ├── test_triage.py
@@ -421,13 +417,16 @@ YAML fail at startup, not at the first live request.
 
 ### A note on integration wiring
 
-`src/gate/` is domain-neutral. `src/orchestrator.py` and `src/api.py` are
-not — they import `examples.shopco.main.build_gate` and hardcode the ShopCo
-startup. This is intentional: the repo ships as a reference implementation
-with one worked example, not as a PyPI framework. Consumers forking for a
-new domain should adapt `src/orchestrator.py` (one import line + the
-`_gate = build_gate()` singleton) to point at their own `build_gate()`.
-Everything under `src/gate/` stays untouched.
+`src/gate/` and `src/orchestrator.py` are domain-neutral. The wiring happens
+in each consumer's `main.py`: `build_gate()` registers that consumer's data
+sources and freezes the gate, then `build_pipeline()` combines it with the
+consumer's triage prompt into a `Pipeline`. `src/api.py` and
+`scripts/run_eval.py` import `examples.shopco.main.build_pipeline` and
+hardcode the ShopCo startup — this is intentional: the repo ships as a
+reference implementation with one worked example, not as a PyPI framework.
+Consumers forking for a new domain should adapt `src/api.py` (one import
+line + the `_pipeline = build_pipeline()` singleton) to point at their own
+`build_pipeline()`. Everything under `src/gate/` stays untouched.
 
 ### Worked examples
 
@@ -464,7 +463,7 @@ code in `src/gate/` is not edited.
 
 ### Add a new triage category
 
-1. Add the category to the triage prompt (`prompts/triage.md`) so the classifier returns it.
+1. Add the category to your consumer's triage prompt (e.g. `examples/shopco/prompts/triage.md`) so the classifier returns it.
 2. Add the category to the consumer YAML (e.g. `examples/shopco/config/shopco.yaml`) under `categories:` with the desired action list.
 3. Add scenarios to `tests/scenarios.yaml` for eval.
 
@@ -482,8 +481,8 @@ code in `src/gate/` is not edited.
 
 ### Add a new voice persona
 
-1. Create a Jinja2 template at `prompts/voice/{persona_name}.md`.
-2. Add the persona name → template path mapping in YAML under `personas:`.
+1. Create a Jinja2 template inside your consumer package (e.g. `examples/shopco/prompts/voice/{persona_name}.md`).
+2. Add the persona name → template path mapping in YAML under `personas:`. Paths are resolved from the repo root at runtime.
 3. Reference it from any `voice_response` action's `persona` param.
 
 Persona names are arbitrary strings — the framework does not maintain a closed enum.

@@ -33,7 +33,7 @@ def _make_pipeline(gate_decision: GateDecision | None = None) -> tuple[Pipeline,
     mock_gate = MagicMock()
     if gate_decision is not None:
         mock_gate.decide.return_value = gate_decision
-    mock_gate.persona_template_path.return_value = "prompts/voice/default_friendly.md"
+    mock_gate.persona_template_path.return_value = "examples/shopco/prompts/voice/default_friendly.md"
     return Pipeline(gate=mock_gate, triage_prompt="TRIAGE PROMPT"), mock_gate
 
 

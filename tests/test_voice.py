@@ -7,7 +7,13 @@ import pytest
 from src.gate.decision import VoiceCallSpec
 from src.voice import VoiceFailure, generate_response
 
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts" / "voice"
+_PROMPTS_DIR = (
+    Path(__file__).resolve().parent.parent
+    / "examples"
+    / "shopco"
+    / "prompts"
+    / "voice"
+)
 
 
 def _persona_path(persona: str) -> str:

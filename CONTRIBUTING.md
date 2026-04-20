@@ -16,10 +16,15 @@ git clone <your-fork-url>
 cd triage-and-voice
 make install           # pip install -e ".[dev]"
 cp .env.example .env   # add your OPENAI_API_KEY
-make test              # pytest -v
-make eval              # side-by-side eval: naive vs. triage-and-voice
+make test              # pytest -v (no network, no API key required)
 make serve             # uvicorn on localhost:8000
 ```
+
+`make test` is deterministic and mocks every LLM call — it's the right command
+for day-to-day contribution. `make eval` (side-by-side naive vs.
+triage-and-voice) issues **real, paid** LLM requests against whatever provider
+your `.env` points at, so run it only when you're intentionally regenerating
+eval results. See `scripts/run_eval.py` for what it costs per run.
 
 ## What kinds of contributions are welcome
 
