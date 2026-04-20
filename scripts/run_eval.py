@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from examples.shopco.main import build_pipeline  # noqa: E402
+from src.config import get_settings  # noqa: E402
 from src.models import ChatMessage  # noqa: E402
 from src.naive.bot import process_message as naive_process  # noqa: E402
 
@@ -72,6 +73,8 @@ async def run_scenario(scenario: dict) -> dict:
         "user_message": user_message,
         "expected_category": scenario.get("expected_category"),
         "expected_human_handoff": scenario.get("expected_human_handoff"),
+        "must_contain": scenario.get("must_contain", []),
+        "must_not_contain": scenario.get("must_not_contain", []),
         "naive": {
             "text": naive_resp.text,
             "human_handoff": naive_resp.human_handoff,
@@ -89,8 +92,44 @@ async def run_scenario(scenario: dict) -> dict:
     }
 
 
-def generate_report(results: list[dict]) -> str:
-    """Generate markdown comparison report."""
+def _format_criteria(r: dict) -> str | None:
+    """Render pass criteria from a scenario result as a one-line string."""
+    parts: list[str] = []
+    if r.get("must_contain"):
+        parts.append("must contain: " + ", ".join(f"`{t}`" for t in r["must_contain"]))
+    if r.get("must_not_contain"):
+        parts.append("must not contain: " + ", ".join(f"`{t}`" for t in r["must_not_contain"]))
+    return "; ".join(parts) if parts else None
+
+
+def _format_response_block(label: str, side: dict) -> list[str]:
+    """Render one bot's result: verdict, preview, and full text in <details>."""
+    text = side["text"]
+    preview = text[:300] + ("…" if len(text) > 300 else "")
+    lines = [
+        f"**{label}:**",
+        f"- Passed: {side['passed']}",
+    ]
+    if side["failures"]:
+        lines.append(f"- Failures: {', '.join(side['failures'])}")
+    lines.append(f"- Response (preview): {preview}")
+    lines.append("")
+    lines.append("<details><summary>Full response</summary>")
+    lines.append("")
+    lines.append(text)
+    lines.append("")
+    lines.append("</details>")
+    lines.append("")
+    return lines
+
+
+def generate_report(results: list[dict], *, link_prefix: str, run_timestamp: str) -> str:
+    """Generate markdown comparison report.
+
+    link_prefix is prepended to repo-rooted paths (e.g. ``../../`` from
+    ``eval-runs/run-*/report.md``) so links resolve from the report's location.
+    """
+    settings = get_settings()
     naive_passed = sum(1 for r in results if r["naive"]["passed"])
     tv_passed = sum(1 for r in results if r["triage_and_voice"]["passed"])
     total = len(results)
@@ -99,6 +138,16 @@ def generate_report(results: list[dict]) -> str:
         "# Eval Results: Naive vs Triage-and-Voice",
         "",
         f"**Naive:** {naive_passed}/{total} passed | **Triage-and-Voice:** {tv_passed}/{total} passed",
+        "",
+        "## Run metadata",
+        "",
+        f"- **Timestamp (UTC):** {run_timestamp}",
+        f"- **Model:** `{settings.model}` · seed `{settings.llm_seed}` · timeout `{settings.llm_timeout_seconds}s` · max retries `{settings.llm_max_retries}`",
+        f"- **Scenarios:** [`tests/scenarios.yaml`]({link_prefix}tests/scenarios.yaml)",
+        f"- **Pattern entry points:** [`README.md`]({link_prefix}README.md) · [`prompts/`]({link_prefix}prompts/) · [`examples/shopco/prompts/`]({link_prefix}examples/shopco/prompts/) · [`examples/shopco/main.py`]({link_prefix}examples/shopco/main.py)",
+        "- **Judge:** substring `must_contain` / `must_not_contain` rules from the scenario file (case-insensitive). Not an LLM judge.",
+        "",
+        "## Summary table",
         "",
         "| Scenario | Naive | T&V | Difference |",
         "|----------|-------|-----|------------|",
@@ -117,6 +166,8 @@ def generate_report(results: list[dict]) -> str:
         lines.append(f"| {r['id']} | {n} | {t} | {diff} |")
 
     lines.append("")
+    lines.append("_Legend: ✅ passed all rules · ❌ failed at least one rule · ⚡ the two bots disagree (usually T&V passes where Naive fails)._")
+    lines.append("")
 
     if diff_details:
         lines.append("## Details")
@@ -130,19 +181,13 @@ def generate_report(results: list[dict]) -> str:
             lines.append(f"**User message:** {r['user_message']}")
             lines.append("")
 
-            lines.append("**Naive:**")
-            lines.append(f"- Passed: {r['naive']['passed']}")
-            if r["naive"]["failures"]:
-                lines.append(f"- Failures: {', '.join(r['naive']['failures'])}")
-            lines.append(f"- Response: {r['naive']['text'][:300]}...")
-            lines.append("")
+            criteria = _format_criteria(r)
+            if criteria:
+                lines.append(f"**Pass criteria:** {criteria}")
+                lines.append("")
 
-            lines.append("**Triage-and-Voice:**")
-            lines.append(f"- Passed: {r['triage_and_voice']['passed']}")
-            if r["triage_and_voice"]["failures"]:
-                lines.append(f"- Failures: {', '.join(r['triage_and_voice']['failures'])}")
-            lines.append(f"- Response: {r['triage_and_voice']['text'][:300]}...")
-            lines.append("")
+            lines.extend(_format_response_block("Naive", r["naive"]))
+            lines.extend(_format_response_block("Triage-and-Voice", r["triage_and_voice"]))
 
     return "\n".join(lines)
 
@@ -160,11 +205,12 @@ async def main():
         results.append(result)
         print()
 
-    # Generate report
-    report = generate_report(results)
+    # Timestamps: one for filenames, one human-readable for the report body.
+    now = datetime.now(UTC)
+    ts = now.strftime("%Y%m%d-%H%M%S")
+    run_timestamp = now.strftime("%Y-%m-%d %H:%M:%S UTC")
 
     # Save to eval-runs/run-{timestamp}/
-    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     run_dir = PROJECT_ROOT / "eval-runs" / f"run-{ts}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -173,22 +219,25 @@ async def main():
         json.dump(results, f, indent=2, ensure_ascii=False)
     print(f"Saved results JSON: {results_json_path}")
 
+    # Report for eval-runs/run-*/report.md — links resolve via ../../ to repo root.
+    run_report = generate_report(results, link_prefix="../../", run_timestamp=run_timestamp)
     report_path = run_dir / "report.md"
     with open(report_path, "w", encoding="utf-8") as f:
-        f.write(report)
+        f.write(run_report)
     print(f"Saved report: {report_path}")
 
-    # Save to docs/eval_results.md
+    # Report for docs/eval_results.md — links resolve via ../ to repo root.
     docs_dir = PROJECT_ROOT / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
+    docs_report = generate_report(results, link_prefix="../", run_timestamp=run_timestamp)
     eval_results_path = docs_dir / "eval_results.md"
     with open(eval_results_path, "w", encoding="utf-8") as f:
-        f.write(report)
+        f.write(docs_report)
     print(f"Saved docs report: {eval_results_path}")
 
     # Print summary
     print()
-    print(report)
+    print(run_report)
 
 
 if __name__ == "__main__":
