@@ -1,16 +1,14 @@
 # examples/shopco/config/shopco.yaml
 
 personas:
-  default_friendly:      prompts/voice/default_friendly.md
-  formal:                prompts/voice/formal.md
-  empathetic_escalation: prompts/voice/empathetic_escalation.md
-  polite_refusal:        prompts/voice/polite_refusal.md
+  default_friendly:      examples/shopco/prompts/voice/default_friendly.md
+  formal:                examples/shopco/prompts/voice/formal.md
+  empathetic_escalation: examples/shopco/prompts/voice/empathetic_escalation.md
+  polite_refusal:        examples/shopco/prompts/voice/polite_refusal.md
 
 categories:
 
   safety_issue:
-    # stop_on_match is reserved for future chained-category matching and currently has no runtime effect
-    stop_on_match: true
     actions:
       - type: handoff
         params:
