@@ -49,7 +49,7 @@ a **naive bot** (single prompt, facts baked in) vs a **triage-and-voice bot**
 (structured pipeline, facts injected from verified sources).
 
 ```mermaid
-flowchart LR
+flowchart TD
     M["User: 'I want to return<br/>order ORD-001'"]
 
     M --> N["Naive bot<br/>(single prompt,<br/>facts baked in)"]
@@ -67,7 +67,7 @@ flowchart LR
 ## The Pattern
 
 ```mermaid
-flowchart LR
+flowchart TD
     U[User message] --> T[Triage LLM]
     T -->|structured JSON| G[Gate]
     G -->|persona + verified data| V[Voice LLM]
@@ -82,7 +82,7 @@ flowchart LR
 **What travels on each channel:**
 
 ```mermaid
-flowchart LR
+flowchart TD
     U[User] -->|"free text"| T[Triage LLM]
     T -->|"JSON: intent,<br/>emotion, data_keys,<br/>entities"| G[Gate]
 
