@@ -138,10 +138,23 @@ def generate_report(results: list[dict], *, link_prefix: str, run_timestamp: str
         "## Run metadata",
         "",
         f"- **Timestamp (UTC):** {run_timestamp}",
-        f"- **Model:** `{settings.model}` · seed `{settings.llm_seed}` · timeout `{settings.llm_timeout_seconds}s` · max retries `{settings.llm_max_retries}`",
+        (
+            f"- **Model:** `{settings.model}` · seed `{settings.llm_seed}` · "
+            f"timeout `{settings.llm_timeout_seconds}s` · "
+            f"max retries `{settings.llm_max_retries}`"
+        ),
         f"- **Scenarios:** [`tests/scenarios.yaml`]({link_prefix}tests/scenarios.yaml)",
-        f"- **Pattern entry points:** [`README.md`]({link_prefix}README.md) · [`prompts/`]({link_prefix}prompts/) · [`examples/shopco/prompts/`]({link_prefix}examples/shopco/prompts/) · [`examples/shopco/main.py`]({link_prefix}examples/shopco/main.py)",
-        "- **Judge:** substring `must_contain` / `must_not_contain` rules from the scenario file (case-insensitive). Not an LLM judge.",
+        (
+            f"- **Pattern entry points:** "
+            f"[`README.md`]({link_prefix}README.md) · "
+            f"[`prompts/`]({link_prefix}prompts/) · "
+            f"[`examples/shopco/prompts/`]({link_prefix}examples/shopco/prompts/) · "
+            f"[`examples/shopco/main.py`]({link_prefix}examples/shopco/main.py)"
+        ),
+        (
+            "- **Judge:** substring `must_contain` / `must_not_contain` rules "
+            "from the scenario file (case-insensitive). Not an LLM judge."
+        ),
         "",
         "## Summary table",
         "",
@@ -162,7 +175,10 @@ def generate_report(results: list[dict], *, link_prefix: str, run_timestamp: str
         lines.append(f"| {r['id']} | {n} | {t} | {diff} |")
 
     lines.append("")
-    lines.append("_Legend: ✅ passed all rules · ❌ failed at least one rule · ⚡ the two bots disagree (usually T&V passes where Naive fails)._")
+    lines.append(
+        "_Legend: ✅ passed all rules · ❌ failed at least one rule · "
+        "⚡ the two bots disagree (usually T&V passes where Naive fails)._"
+    )
     lines.append("")
 
     if diff_details:
