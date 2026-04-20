@@ -70,6 +70,50 @@ For a deep dive, see the article:
 
 ---
 
+## Why this isn't new: the call-center playbook
+
+Customer support has worked by script for forty years — telephone call centers
+in the 80s, chat support in the 2010s, any large service desk today. Not
+because operators are slow, but because humans under pressure also drift: an
+irate customer, an AHT clock, an unfamiliar case, and accuracy gives way to
+fluency. The industry learned this early and moved the fragile part — *what*
+to say — out of the operator's head and into an external decision layer.
+
+Two axes of escalation are built into every modern playbook, and they fire
+independently:
+
+- **Authority gap** — the operator can't approve what the customer is asking.
+  That's an *intent* problem.
+- **Emotional intensity** — the customer is at the edge; empathy comes before
+  logic. That's a *state* problem.
+
+The HEARD framework (Hear, Empathize, Acknowledge, Resolve, Diagnose) codified
+the second one decades ago: process the emotion before the answer, or the
+answer isn't heard. Modern contact-center platforms score sentiment in real
+time and page a supervisor when it crosses a threshold — a wholly separate
+trigger from whether the operator has authority to resolve the case.
+
+The mechanical split maps onto this pattern:
+
+| Call-center role                                                            | This pattern    |
+|-----------------------------------------------------------------------------|-----------------|
+| Supervisor system — classifies call by intent and sentiment                 | **Triage**      |
+| Playbook — branching catalog of categories and responses                    | **YAML config** |
+| Runtime that reads the playbook, pulls data, hands the page to the operator | **Gate**        |
+| Operator — reads the answer to the customer                                 | **Voice**       |
+
+The operator doesn't hold escalation rules in their head — the rules live in
+the playbook, and the gate enforces them. **The script sits at the gate, not
+at the voice.** This is the detail most LLM support implementations miss when
+they stuff policies, tone, and decision rules into one system prompt.
+
+And the LLM needs this script *more* than a human does, not less. An
+experienced operator learns over months not to buckle under emotional
+pressure; a model starts every conversation from the same weights, with
+sycophancy baked in. Repetition doesn't harden it. The architecture has to.
+
+---
+
 ## The Pattern
 
 ```mermaid
