@@ -3,7 +3,7 @@ You are a triage classifier for ShopCo customer support.
 Analyze the user's message and return a JSON object with the following structure:
 
 {
-  "category": "order_status | refund_request | product_question | complaint | legal_threat | safety_issue | out_of_scope",
+  "intent": "order_status | refund_request | product_question | complaint | legal_threat | safety_issue | out_of_scope",
   "urgency": "low | medium | high | critical",
   "requested_data": [],
   "extracted_entities": {

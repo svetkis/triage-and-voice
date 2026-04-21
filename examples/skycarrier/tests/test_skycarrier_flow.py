@@ -1,12 +1,14 @@
 """Acceptance tests for SkyCarrier: demonstrates the framework's core thesis —
-triage-category splitting (distressed vs neutral bereavement inquiry) routes to
-different personas, while the fare terms payload is identical and deterministic
-in both branches. No LLM is invoked; we assert on the Gate decision only."""
+(intent, emotional_state) is the real routing key. The resolver fuses the two
+axes into a gate category; the gate then dispatches deterministically. The fare
+terms payload is identical in both branches. No LLM is invoked; we assert on
+the Gate decision only."""
 
 import pytest
 
 from examples.skycarrier.main import build_gate
-from src.models import ExtractedEntities, TriageResult
+from examples.skycarrier.resolver import resolve_category
+from src.models import ExtractedEntities, TriageClassification, TriageResult
 
 
 @pytest.fixture(scope="module")
@@ -15,6 +17,8 @@ def gate():
 
 
 def _triage(**overrides) -> TriageResult:
+    """Build a TriageResult directly — bypasses the resolver, used when we want
+    to test gate behaviour on an already-fused category."""
     defaults = {
         "category": "bereavement_fare_neutral",
         "urgency": "low",
@@ -24,6 +28,28 @@ def _triage(**overrides) -> TriageResult:
     }
     defaults.update(overrides)
     return TriageResult(**defaults)
+
+
+def _classify_and_resolve(**overrides) -> TriageResult:
+    """Build a TriageClassification, run it through the resolver, return a
+    TriageResult as the Pipeline would. Use this when the test is about the
+    (intent, emotional_state) → persona linkage, not just gate dispatch."""
+    defaults = {
+        "intent": "bereavement_fare",
+        "urgency": "low",
+        "requested_data": [],
+        "extracted_entities": ExtractedEntities(),
+        "user_emotional_state": "neutral",
+    }
+    defaults.update(overrides)
+    classification = TriageClassification(**defaults)
+    return TriageResult(
+        category=resolve_category(classification),
+        urgency=classification.urgency,
+        requested_data=classification.requested_data,
+        extracted_entities=classification.extracted_entities,
+        user_emotional_state=classification.user_emotional_state,
+    )
 
 
 # -- 1. distressed passenger routes to the supportive persona ---------------
@@ -113,3 +139,35 @@ def test_baggage_policy_points_to_services_desk(gate):
 def test_unknown_category_falls_back_to_factual_persona(gate):
     decision = gate.decide(_triage(category="something_not_configured"))
     assert decision.voice_call.persona == "factual_fare_terms"
+
+
+# -- 9. two-axes linkage (the article's core thesis) -----------------------
+# Same intent, different emotional_state → different persona. This linkage
+# is what the paper calls "emotional state as a second routing axis". It is
+# mediated by the resolver, not hard-coded into category names passed to the
+# gate. These tests go through classify_and_resolve() so the linkage is real,
+# not simulated by the test fixture.
+
+def test_same_intent_distressed_routes_to_support_persona(gate):
+    decision = gate.decide(
+        _classify_and_resolve(intent="bereavement_fare", user_emotional_state="distressed")
+    )
+    assert decision.voice_call.persona == "bereavement_support"
+
+
+def test_same_intent_neutral_routes_to_factual_persona(gate):
+    decision = gate.decide(
+        _classify_and_resolve(intent="bereavement_fare", user_emotional_state="neutral")
+    )
+    assert decision.voice_call.persona == "factual_fare_terms"
+
+
+@pytest.mark.parametrize("state", ["distressed", "frustrated", "angry"])
+def test_same_intent_any_non_neutral_emotion_triggers_safe_default(gate, state):
+    """If triage detects ANY distress signal, the resolver forces the supportive
+    persona. This is the safe-default that used to live as prose in the triage
+    prompt and is now enforced by code."""
+    decision = gate.decide(
+        _classify_and_resolve(intent="bereavement_fare", user_emotional_state=state)
+    )
+    assert decision.voice_call.persona == "bereavement_support"

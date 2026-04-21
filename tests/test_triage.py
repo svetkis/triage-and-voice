@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.models import ExtractedEntities, TriageResult
+from src.models import ExtractedEntities, TriageClassification
 from src.triage import TriageFailure, run_triage
 
 
@@ -20,8 +20,8 @@ def _mock_client(completion: SimpleNamespace) -> AsyncMock:
     return client
 
 
-VALID_TRIAGE = TriageResult(
-    category="order_status",
+VALID_TRIAGE = TriageClassification(
+    intent="order_status",
     urgency="medium",
     requested_data=["order_status"],
     extracted_entities=ExtractedEntities(order_id="ORD-123", product_id=None),
@@ -37,8 +37,8 @@ async def test_parsed_triage_result_is_returned(mock_get_client: AsyncMock):
 
     result = await run_triage("Where is my order ORD-123?", history=[], prompt="SYSTEM PROMPT")
 
-    assert isinstance(result, TriageResult)
-    assert result.category == "order_status"
+    assert isinstance(result, TriageClassification)
+    assert result.intent == "order_status"
     assert result.urgency == "medium"
     assert result.extracted_entities.order_id == "ORD-123"
 
