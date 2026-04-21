@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from examples.skycarrier.resolver import resolve_category
 from examples.skycarrier.sources import (
     BaggagePolicySource,
     FareTermsSource,
@@ -25,4 +26,5 @@ def build_pipeline() -> Pipeline:
     return Pipeline(
         gate=build_gate(),
         triage_prompt=_TRIAGE_PROMPT_PATH.read_text(encoding="utf-8"),
+        resolver=resolve_category,
     )

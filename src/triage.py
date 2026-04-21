@@ -12,7 +12,7 @@ from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from src.config import get_settings
-from src.models import ChatMessage, TriageResult
+from src.models import ChatMessage, TriageClassification
 
 
 class TriageFailure(Exception):
@@ -30,8 +30,13 @@ def _get_client() -> AsyncOpenAI:
     )
 
 
-async def run_triage(user_message: str, history: list[ChatMessage], prompt: str) -> TriageResult:
+async def run_triage(
+    user_message: str, history: list[ChatMessage], prompt: str
+) -> TriageClassification:
     """Classify a user message via LLM in JSON mode.
+
+    Returns a TriageClassification with `intent` and `user_emotional_state` as
+    two independent axes. A downstream resolver fuses them into a gate category.
 
     `prompt` is the system prompt for the triage call — supplied by the caller
     (typically loaded once at Pipeline construction from the vertical's prompt file).
@@ -58,6 +63,6 @@ async def run_triage(user_message: str, history: list[ChatMessage], prompt: str)
             f"(finish_reason={response.choices[0].finish_reason!r})."
         )
     try:
-        return TriageResult.model_validate_json(content)
+        return TriageClassification.model_validate_json(content)
     except ValidationError as e:
         raise TriageFailure(f"Triage returned malformed JSON: {e}") from e

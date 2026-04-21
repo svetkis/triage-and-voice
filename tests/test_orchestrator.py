@@ -5,16 +5,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.gate.decision import GateDecision, VoiceCallSpec
-from src.models import BotResponse, ChatMessage, TriageResult
+from src.models import BotResponse, ChatMessage, TriageClassification
 from src.orchestrator import Pipeline
 from src.triage import TriageFailure
 from src.voice import VoiceFailure
 
 
-def _make_triage_result(**overrides) -> TriageResult:
-    defaults = {"category": "product_question", "urgency": "low"}
+def _make_classification(**overrides) -> TriageClassification:
+    defaults = {"intent": "product_question", "urgency": "low"}
     defaults.update(overrides)
-    return TriageResult(**defaults)
+    return TriageClassification(**defaults)
 
 
 def _make_gate_decision(**overrides) -> GateDecision:
@@ -43,13 +43,13 @@ def history() -> list[ChatMessage]:
 
 
 async def test_full_pipeline_returns_correct_bot_response(history: list[ChatMessage]):
-    """Full pipeline: triage → gate → voice produces correct BotResponse."""
-    triage_result = _make_triage_result()
+    """Full pipeline: triage → resolve → gate → voice produces correct BotResponse."""
+    classification = _make_classification()
     gate_decision = _make_gate_decision()
     pipeline, _ = _make_pipeline(gate_decision)
 
     with (
-        patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=triage_result),
+        patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=classification),
         patch("src.orchestrator.generate_response", new_callable=AsyncMock, return_value="Here's the answer!"),
     ):
         result = await pipeline.process_message("What color is it?", history)
@@ -57,7 +57,8 @@ async def test_full_pipeline_returns_correct_bot_response(history: list[ChatMess
     assert isinstance(result, BotResponse)
     assert result.text == "Here's the answer!"
     assert result.human_handoff is False
-    assert "triage: category=product_question, urgency=low" in result.trace
+    assert any("intent=product_question" in t for t in result.trace)
+    assert "resolve: category=product_question" in result.trace
     assert "voice_response: persona='default_friendly'" in result.trace
     assert "voice: persona=default_friendly" in result.trace
 
@@ -87,12 +88,12 @@ async def test_unexpected_exception_returns_fallback(history: list[ChatMessage])
 
 async def test_voice_failure_returns_fallback_with_human_handoff(history: list[ChatMessage]):
     """When voice raises VoiceFailure (e.g. content-filter), return fallback with human_handoff=True."""
-    triage_result = _make_triage_result()
+    classification = _make_classification()
     gate_decision = _make_gate_decision()
     pipeline, _ = _make_pipeline(gate_decision)
 
     with (
-        patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=triage_result),
+        patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=classification),
         patch(
             "src.orchestrator.generate_response",
             new_callable=AsyncMock,
@@ -108,14 +109,14 @@ async def test_voice_failure_returns_fallback_with_human_handoff(history: list[C
 
 async def test_trace_includes_gate_reasoning(history: list[ChatMessage]):
     """Trace should include all gate reasoning entries."""
-    triage_result = _make_triage_result(category="refund_request", urgency="medium", requested_data=["refund_policy"])
+    classification = _make_classification(intent="refund_request", urgency="medium", requested_data=["refund_policy"])
     gate_decision = _make_gate_decision(
         reasoning_trace=["voice_response: persona='default_friendly'", "inject_data: policies→refund_policy"],
     )
     pipeline, _ = _make_pipeline(gate_decision)
 
     with (
-        patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=triage_result),
+        patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=classification),
         patch("src.orchestrator.generate_response", new_callable=AsyncMock, return_value="Policy info here."),
     ):
         result = await pipeline.process_message("I want a refund", history)
@@ -131,10 +132,30 @@ async def test_pipeline_forwards_its_triage_prompt_to_run_triage(history: list[C
     with patch(
         "src.orchestrator.run_triage",
         new_callable=AsyncMock,
-        return_value=_make_triage_result(),
+        return_value=_make_classification(),
     ) as mock_triage:
         await pipeline.process_message("hi", history)
 
     assert mock_triage.call_args.kwargs.get("prompt") == "VERTICAL-SPECIFIC PROMPT" or (
         len(mock_triage.call_args.args) >= 3 and mock_triage.call_args.args[2] == "VERTICAL-SPECIFIC PROMPT"
     )
+
+
+async def test_resolver_is_called_and_category_is_passed_to_gate(history: list[ChatMessage]):
+    """The resolver must receive the classification and its output must drive gate.decide."""
+    classification = _make_classification(intent="bereavement_fare", user_emotional_state="distressed")
+    gate_decision = _make_gate_decision(voice_call=None, payload={"info": "ok"})
+    pipeline, mock_gate = _make_pipeline(gate_decision)
+
+    pipeline._resolver = lambda c: "bereavement_fare_under_distress"
+
+    with patch(
+        "src.orchestrator.run_triage",
+        new_callable=AsyncMock,
+        return_value=classification,
+    ):
+        await pipeline.process_message("my grandmother died", history)
+
+    gate_call_arg = mock_gate.decide.call_args.args[0]
+    assert gate_call_arg.category == "bereavement_fare_under_distress"
+    assert gate_call_arg.user_emotional_state == "distressed"

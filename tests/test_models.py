@@ -7,8 +7,25 @@ from src.models import (
     BotResponse,
     ChatMessage,
     ExtractedEntities,
+    TriageClassification,
     TriageResult,
 )
+
+
+class TestTriageClassification:
+    def test_valid_classification_parses(self):
+        c = TriageClassification(
+            intent="bereavement_fare",
+            urgency="high",
+            user_emotional_state="distressed",
+        )
+        assert c.intent == "bereavement_fare"
+        assert c.user_emotional_state == "distressed"
+
+    def test_defaults(self):
+        c = TriageClassification(intent="flight_status", urgency="low")
+        assert c.user_emotional_state == "neutral"
+        assert c.requested_data == []
 
 
 class TestTriageResult:
