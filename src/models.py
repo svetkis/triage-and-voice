@@ -9,6 +9,7 @@ Intent = str
 Category = str
 Urgency = Literal["low", "medium", "high", "critical"]
 EmotionalState = Literal["neutral", "frustrated", "angry", "distressed"]
+HarmState = Literal["none", "past", "acute", "unclear"]
 
 
 class ExtractedEntities(BaseModel):
@@ -17,7 +18,7 @@ class ExtractedEntities(BaseModel):
 
 
 class TriageClassification(BaseModel):
-    """Raw output of the triage LLM — two independent axes (intent + emotional_state).
+    """Raw output of the triage LLM — independent axes (intent, emotional_state, harm_state).
 
     The LLM does NOT fuse these axes into a single category. Fusion is the job
     of a domain-specific resolver between triage and gate, which lets the fusion
@@ -29,6 +30,7 @@ class TriageClassification(BaseModel):
     requested_data: list[str] = Field(default_factory=list)
     extracted_entities: ExtractedEntities = Field(default_factory=ExtractedEntities)
     user_emotional_state: EmotionalState = "neutral"
+    harm_state: HarmState = "none"
 
 
 class TriageResult(BaseModel):

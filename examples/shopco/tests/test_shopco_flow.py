@@ -152,6 +152,62 @@ def test_legal_threat_still_injects_refund_policy(gate):
     assert "14 days" in decision.payload["refund_policy"]
 
 
+# -- 12. crisis_handoff (harm_state=acute) ----------------------------------
+
+def test_crisis_handoff_warmtransfers_with_hotline_and_no_commercial_data(gate):
+    """Acute safety lane: warm-transfer persona, handoff, safety_hotline only.
+
+    Identity and commercial data must NOT leak into the payload — the whole
+    point of this lane is that the LLM is denied the option of asking for
+    order_id or discussing refunds while a live safety incident is in progress.
+    """
+    decision = gate.decide(_triage(category="crisis_handoff", urgency="critical"))
+    assert decision.voice_call.persona == "crisis_warmtransfer"
+    assert decision.handoff is True
+    assert "safety_hotline" in decision.payload
+    assert "refund_policy" not in decision.payload
+    assert "order_status" not in decision.payload
+
+
+# -- 13. priority_complaint (harm_state=past + intent=safety_issue) ---------
+
+def test_priority_complaint_injects_hotline_and_policy_with_handoff(gate):
+    """Past-incident lane: empathetic escalation, handoff for adverse-event
+    logging, both safety_hotline and refund_policy available."""
+    decision = gate.decide(_triage(
+        category="priority_complaint",
+        urgency="high",
+        requested_data=["refund_policy"],
+    ))
+    assert decision.voice_call.persona == "empathetic_escalation"
+    assert decision.handoff is True
+    assert "safety_hotline" in decision.payload
+    assert "refund_policy" in decision.payload
+
+
+# -- 14. ask_harm_clarification (harm_state=unclear) ------------------------
+
+def test_ask_harm_clarification_asks_with_clarifier_persona_and_no_data(gate):
+    """Clarification lane: single question, no data contamination.
+
+    The clarifier persona must not receive safety_hotline, refund_policy, or
+    order data — the first response is strictly the safety-triage question.
+    Specialist dispatch still happens in parallel via the
+    force_handoff_on_urgency override, so handoff is True without the
+    category itself declaring one.
+    """
+    decision = gate.decide(_triage(
+        category="ask_harm_clarification",
+        urgency="critical",
+    ))
+    assert decision.voice_call.persona == "harm_clarifier"
+    assert "safety_hotline" not in decision.payload
+    assert "refund_policy" not in decision.payload
+    assert "order_status" not in decision.payload
+    # force_handoff_on_urgency=[critical] still fires for parallel dispatch
+    assert decision.handoff is True
+
+
 # -- 11. reasoning_trace is populated ---------------------------------------
 
 def test_reasoning_trace_is_populated(gate):

@@ -25,7 +25,17 @@ class TestTriageClassification:
     def test_defaults(self):
         c = TriageClassification(intent="flight_status", urgency="low")
         assert c.user_emotional_state == "neutral"
+        assert c.harm_state == "none"
         assert c.requested_data == []
+
+    def test_harm_state_accepts_all_values(self):
+        for value in ("none", "past", "acute", "unclear"):
+            c = TriageClassification(intent="safety_issue", urgency="critical", harm_state=value)
+            assert c.harm_state == value
+
+    def test_harm_state_rejects_unknown_value(self):
+        with pytest.raises(ValidationError):
+            TriageClassification(intent="safety_issue", urgency="critical", harm_state="maybe")
 
 
 class TestTriageResult:
