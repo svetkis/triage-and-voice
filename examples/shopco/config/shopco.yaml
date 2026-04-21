@@ -5,6 +5,8 @@ personas:
   formal:                examples/shopco/prompts/voice/formal.md
   empathetic_escalation: examples/shopco/prompts/voice/empathetic_escalation.md
   polite_refusal:        examples/shopco/prompts/voice/polite_refusal.md
+  crisis_warmtransfer:   examples/shopco/prompts/voice/crisis_warmtransfer.md
+  harm_clarifier:        examples/shopco/prompts/voice/harm_clarifier.md
 
 categories:
 
@@ -73,6 +75,58 @@ categories:
         params:
           persona: default_friendly
           inject_data: [order_status]
+
+  # --- Safety lanes (produced by ShopCo resolver from triage.harm_state) ---
+
+  crisis_handoff:
+    # harm_state=acute — live safety incident, warm transfer to Trust & Safety L3.
+    # Identity gating is skipped on purpose; the reason string carries the
+    # queue-tag until a structured queue param is introduced (Path 2 followup).
+    actions:
+      - type: handoff
+        params:
+          reason: crisis_warm_transfer_to_ts_l3
+      - type: inject_data
+        params:
+          source: escalation_contacts
+          key: safety_hotline
+          contact_key: safety_hotline
+      - type: voice_response
+        params:
+          persona: crisis_warmtransfer
+          inject_data: [safety_hotline]
+
+  priority_complaint:
+    # harm_state=past + intent=safety_issue — resolved incident needing
+    # adverse-event logging (CPSC Section 102). Identity flow allowed.
+    actions:
+      - type: handoff
+        params:
+          reason: adverse_event_report
+      - type: inject_data
+        params:
+          source: escalation_contacts
+          key: safety_hotline
+          contact_key: safety_hotline
+      - type: inject_data
+        params:
+          source: policies
+          key: refund_policy
+          policy_name: refund_policy
+      - type: voice_response
+        params:
+          persona: empathetic_escalation
+          inject_data: [safety_hotline, refund_policy]
+
+  ask_harm_clarification:
+    # harm_state=unclear — single focused safety-triage question before routing.
+    # No data injection (no hotline/policy contamination), no explicit handoff —
+    # the force_handoff_on_urgency=[critical] override still dispatches a
+    # specialist in parallel while the bot asks the question.
+    actions:
+      - type: voice_response
+        params:
+          persona: harm_clarifier
 
 default:
   actions:

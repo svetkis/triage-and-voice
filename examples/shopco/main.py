@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from examples.shopco.resolver import resolve_category
 from examples.shopco.sources import ContactsSource, OrderSource, PolicySource
 from src.gate.engine import Gate
 from src.orchestrator import Pipeline
@@ -21,4 +22,5 @@ def build_pipeline() -> Pipeline:
     return Pipeline(
         gate=build_gate(),
         triage_prompt=_TRIAGE_PROMPT_PATH.read_text(encoding="utf-8"),
+        resolver=resolve_category,
     )

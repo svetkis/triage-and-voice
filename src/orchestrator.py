@@ -57,6 +57,7 @@ class Pipeline:
             trace.append(
                 f"triage: intent={classification.intent}, "
                 f"emotional_state={classification.user_emotional_state}, "
+                f"harm_state={classification.harm_state}, "
                 f"urgency={classification.urgency}"
             )
 
