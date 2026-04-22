@@ -81,6 +81,7 @@ class TestBotResponse:
         resp = BotResponse(text="Hello")
         assert resp.human_handoff is False
         assert resp.trace == []
+        assert resp.classification is None
 
 
 class TestChatMessage:

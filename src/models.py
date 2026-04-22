@@ -49,6 +49,19 @@ class ChatMessage(BaseModel):
 
 
 class BotResponse(BaseModel):
+    """Pipeline output. `classification` carries the triage axes that drove this
+    response.
+
+    For pipelines that run triage: `None` iff triage did not return successfully
+    (failed before producing a classification); populated on every post-triage
+    outcome, including fallbacks after voice or gate failures. This is what lets
+    eval harnesses tell triage-layer failures apart from post-triage failures.
+
+    For bots that do not invoke triage (e.g. the naive baseline), `classification`
+    is always `None` — absence of triage, not triage failure. Consumers that care
+    about this distinction should key off the endpoint, not the field."""
+
     text: str
     human_handoff: bool = False
     trace: list[str] = Field(default_factory=list)
+    classification: TriageClassification | None = None

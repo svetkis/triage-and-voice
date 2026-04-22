@@ -50,6 +50,7 @@ class Pipeline:
     async def process_message(self, user_message: str, history: list[ChatMessage]) -> BotResponse:
         """Process a user message through the triage → resolve → gate → voice pipeline."""
         trace: list[str] = []
+        classification: TriageClassification | None = None
 
         try:
             # 1. Triage — two independent axes
@@ -96,6 +97,7 @@ class Pipeline:
                 text=response_text,
                 human_handoff=decision.handoff,
                 trace=trace,
+                classification=classification,
             )
 
         except TriageFailure as exc:
@@ -114,4 +116,5 @@ class Pipeline:
             text=_FALLBACK_TEXT,
             human_handoff=True,
             trace=trace,
+            classification=classification,
         )
