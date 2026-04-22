@@ -61,6 +61,7 @@ async def test_full_pipeline_returns_correct_bot_response(history: list[ChatMess
     assert "resolve: category=product_question" in result.trace
     assert "voice_response: persona='default_friendly'" in result.trace
     assert "voice: persona=default_friendly" in result.trace
+    assert result.classification == classification
 
 
 async def test_triage_failure_returns_fallback_with_human_handoff(history: list[ChatMessage]):
@@ -73,6 +74,7 @@ async def test_triage_failure_returns_fallback_with_human_handoff(history: list[
     assert result.human_handoff is True
     assert "human agent" in result.text.lower()
     assert any("error" in t.lower() or "triage" in t.lower() for t in result.trace)
+    assert result.classification is None
 
 
 async def test_unexpected_exception_returns_fallback(history: list[ChatMessage]):
@@ -84,6 +86,23 @@ async def test_unexpected_exception_returns_fallback(history: list[ChatMessage])
 
     assert result.human_handoff is True
     assert "human agent" in result.text.lower()
+    assert result.classification is None
+
+
+async def test_unexpected_exception_after_triage_preserves_classification(history: list[ChatMessage]):
+    """If triage succeeds but a later step raises an unexpected Exception, the
+    fallback BotResponse must still carry the classification — that is how an
+    eval harness distinguishes a post-triage failure from a triage failure."""
+    classification = _make_classification()
+    pipeline, mock_gate = _make_pipeline()
+    mock_gate.decide.side_effect = RuntimeError("gate exploded")
+
+    with patch("src.orchestrator.run_triage", new_callable=AsyncMock, return_value=classification):
+        result = await pipeline.process_message("Help me", history)
+
+    assert result.human_handoff is True
+    assert "human agent" in result.text.lower()
+    assert result.classification == classification
 
 
 async def test_voice_failure_returns_fallback_with_human_handoff(history: list[ChatMessage]):
@@ -105,6 +124,7 @@ async def test_voice_failure_returns_fallback_with_human_handoff(history: list[C
     assert result.human_handoff is True
     assert "human agent" in result.text.lower()
     assert any("voice" in t.lower() for t in result.trace)
+    assert result.classification == classification
 
 
 async def test_trace_includes_gate_reasoning(history: list[ChatMessage]):

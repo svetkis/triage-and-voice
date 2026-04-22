@@ -26,9 +26,18 @@ class ChatRequest(BaseModel):
     history: list[ChatMessage] = Field(default_factory=list)
 
 
-def _gate_trace(response: BotResponse) -> BotResponse:
+def _gate_internal_fields(response: BotResponse) -> BotResponse:
+    """Strip internal observability fields (trace, classification) from
+    responses before returning them to clients, unless `expose_trace` is on.
+
+    Both fields carry the same class of data: how the pipeline reached its
+    decision. They are useful for eval harnesses and debugging, but leaking
+    them to browsers exposes triage internals (intent, harm_state, extracted
+    entities) that the public response body should not surface by default.
+    """
     if not get_settings().expose_trace:
         response.trace = []
+        response.classification = None
     return response
 
 
@@ -39,9 +48,9 @@ async def health():
 
 @app.post("/chat/triage-voice", response_model=BotResponse)
 async def chat_triage_voice(req: ChatRequest) -> BotResponse:
-    return _gate_trace(await _pipeline.process_message(req.message, req.history))
+    return _gate_internal_fields(await _pipeline.process_message(req.message, req.history))
 
 
 @app.post("/chat/naive", response_model=BotResponse)
 async def chat_naive(req: ChatRequest) -> BotResponse:
-    return _gate_trace(await naive_process(req.message, req.history))
+    return _gate_internal_fields(await naive_process(req.message, req.history))
