@@ -171,3 +171,17 @@ def test_same_intent_any_non_neutral_emotion_triggers_safe_default(gate, state):
         _classify_and_resolve(intent="bereavement_fare", user_emotional_state=state)
     )
     assert decision.voice_call.persona == "bereavement_support"
+
+
+# -- 10. out_of_scope — explicit refusal lane (Chevrolet-style jailbreak) --
+
+def test_out_of_scope_uses_polite_refusal_persona(gate):
+    decision = gate.decide(_triage(category="out_of_scope"))
+    assert decision.voice_call.persona == "polite_refusal"
+
+
+def test_out_of_scope_carries_no_payload(gate):
+    """No data injection on the refusal lane — nothing for the LLM to leak
+    or repurpose under prompt injection."""
+    decision = gate.decide(_triage(category="out_of_scope"))
+    assert decision.payload == {}

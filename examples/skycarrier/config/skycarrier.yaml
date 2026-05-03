@@ -4,6 +4,7 @@ personas:
   bereavement_support:  examples/skycarrier/prompts/voice/bereavement_support.md
   factual_fare_terms:   examples/skycarrier/prompts/voice/factual_fare_terms.md
   factual_general_info: examples/skycarrier/prompts/voice/factual_general_info.md
+  polite_refusal:       examples/skycarrier/prompts/voice/polite_refusal.md
 
 categories:
 
@@ -54,6 +55,15 @@ categories:
         params:
           persona: factual_general_info
           inject_data: [baggage_policy]
+
+  out_of_scope:
+    # Off-topic requests and adversarial prompts (jailbreak / role-change /
+    # "binding offer" injection — the Chevrolet-of-Watsonville pattern). No
+    # data injection: the persona refuses on its own, with no payload to leak.
+    actions:
+      - type: voice_response
+        params:
+          persona: polite_refusal
 
 default:
   actions:
