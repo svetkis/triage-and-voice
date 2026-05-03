@@ -313,13 +313,88 @@ YAML fail at startup, not at the first live request.
 `src/gate/` and `src/orchestrator.py` are domain-neutral. The wiring happens
 in each consumer's `main.py`: `build_gate()` registers that consumer's data
 sources and freezes the gate, then `build_pipeline()` combines it with the
-consumer's triage prompt into a `Pipeline`. `src/api.py` and
+consumer's triage prompt and resolver into a `Pipeline`. `src/api.py` and
 `scripts/run_eval.py` import `examples.shopco.main.build_pipeline` and
 hardcode the ShopCo startup — this is intentional: the repo ships as a
 reference implementation with one worked example, not as a PyPI framework.
-Consumers forking for a new domain should adapt `src/api.py` (one import
-line + the `_pipeline = build_pipeline()` singleton) to point at their own
-`build_pipeline()`. Everything under `src/gate/` stays untouched.
+Everything under `src/gate/` stays untouched when you fork.
+
+### Forking for your own domain
+
+The fastest start is to copy a worked example and adapt it. Two ship:
+
+- [`examples/shopco/`](examples/shopco/) — e-commerce support; demonstrates
+  safe-default harm routing (`harm_state` preempts commercial intent).
+- [`examples/skycarrier/`](examples/skycarrier/) — airline support;
+  demonstrates emotional-state routing (same intent → different persona
+  depending on `user_emotional_state`).
+
+The mechanical copy takes minutes. The substantive work — your triage
+prompt and persona templates — takes hours and is irreducible: that's the
+domain knowledge that makes the bot yours.
+
+Steps below assume you copied `skycarrier`; paths transpose if you started
+from `shopco`.
+
+1. **Copy the example.**
+
+   ```bash
+   cp -r examples/skycarrier examples/mycompany
+   ```
+
+2. **Rewrite the triage prompt — this is where the bot learns your domain.**
+   Edit `examples/mycompany/prompts/triage.md`. Define your `intent` enum,
+   the `user_emotional_state` and `harm_state` values your domain uses, and
+   few-shot examples drawn from real messages. Most of your work lives here.
+
+3. **Write a voice persona template for each persona you intend to use.**
+   Create `examples/mycompany/prompts/voice/{persona}.md` — a Jinja2 template
+   that receives only the `inject_data` keys the gate provides. Templates
+   never see raw sources.
+
+4. **Implement your data sources.**
+   Edit `examples/mycompany/sources.py`. Each source implements
+   `fetch(params: dict) -> str | None` and returns verified data or `None`.
+
+5. **Wire behaviour in YAML.**
+   Edit `examples/mycompany/config/mycompany.yaml`. For each gate category,
+   declare an action list (`handoff`, `inject_data`, `voice_response`, or
+   custom). Persona and source names must match steps 3 and 4 —
+   `Gate.freeze()` fails loud at startup on any mismatch.
+
+6. **Write a resolver.**
+   Edit `examples/mycompany/resolver.py` — a pure function
+   `(TriageClassification) → str` that fuses triage axes (`intent`,
+   `user_emotional_state`, `harm_state`) into a gate category name. The
+   action list itself stays in YAML; the resolver only picks which category
+   fires. The built-in `_identity_resolver` returns `intent` and ignores
+   the other axes — fine for trivial domains, but both shipped examples
+   define their own.
+
+7. **Wire `main.py`.**
+   Edit `examples/mycompany/main.py` so `build_gate()` registers your
+   sources and `build_pipeline()` points at your triage prompt and resolver.
+   The skeleton from the donor example is already wired — just rename
+   the imports.
+
+8. **Replace the donor tests.**
+   `examples/mycompany/tests/` still contains the donor's tests with
+   hardcoded expectations. Delete them or rewrite against your domain
+   before running `pytest`.
+
+9. **Point the entry points at your pipeline.**
+   In [`src/api.py`](src/api.py), change one import:
+
+   ```python
+   from examples.mycompany.main import build_pipeline
+   ```
+
+   Do the same in [`scripts/run_eval.py`](scripts/run_eval.py) if you run
+   eval, and replace [`tests/scenarios.yaml`](tests/scenarios.yaml) with
+   your own scenarios (or copy and edit it).
+
+`src/gate/`, `src/orchestrator.py`, `src/triage.py`, and `src/voice.py`
+stay untouched throughout.
 
 ### Worked examples
 
