@@ -729,6 +729,7 @@ and history turn count.
 - **English version:** [Substack](https://lanaapps.substack.com/p/why-your-llm-product-hallucinates)
 - **Companion eval framework:** [triage-voice-eval](https://github.com/svetkis/triage-voice-eval) — binary safety verdicts, persona fan-out, trend analysis
 - **Author:** [Svetlana Meleshkina](https://github.com/svetkis)
+- **Consulting:** if you're considering this pattern for your product, reach out on Telegram [@svetkis](https://t.me/svetkis) — LLM-bot architecture reviews and audits.
 
 ## License
 
